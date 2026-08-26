@@ -16,7 +16,6 @@
     <!-- CONFIGURACIÓN DE FIREBASE INTEGRADA -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-      // SDKs adicionales opcionales (Firestore, Auth, etc.)
 
       const firebaseConfig = {
         apiKey: "AIzaSyA7edmm2X6rQQxB4YYhFFBEbV4rH2Zpc2E",
@@ -27,7 +26,6 @@
         appId: "1:765026412541:web:bdf6a3b6a65479a5971b94"
       };
 
-      // Inicializar Firebase
       const app = initializeApp(firebaseConfig);
     </script>
 
@@ -474,7 +472,6 @@
 <body>
 
     <header>
-        <!-- BOTÓN MODO NORMAL / NOCTURNO -->
         <button id="themeToggle" class="theme-toggle-btn" title="Cambiar modo de vista" aria-label="Cambiar modo de vista">
             ☀️
         </button>
@@ -667,6 +664,20 @@
                 <button class="btn-accion-emergente" onclick="abrirModalAsignarTarea()">
                     📌 Asignar Tarea
                 </button>
+            </div>
+
+            <!-- SECCIÓN DE RESPALDO ANTI-BORRADO LOCAL (IDEAL PARA GITHUB PAGES) -->
+            <div style="background: var(--bg-input); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
+                <div>
+                    <strong style="font-size: 0.9rem; display: block;">💾 Respaldo de Base de Datos Local</strong>
+                    <small style="color: var(--text-muted);">Exporta o importa tus datos en formato JSON para prevenir pérdidas por caché del navegador.</small>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-info" style="padding: 8px 14px; font-size: 0.85rem;" onclick="exportarRespaldoJSON()">Descargar Respaldo JSON</button>
+                    <label class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem; cursor: pointer; margin: 0; display: inline-block; background: var(--success);">
+                        Restaurar JSON <input type="file" id="input-importar-json" accept=".json" style="display: none;" onchange="importarRespaldoJSON(event)">
+                    </label>
+                </div>
             </div>
 
             <h3 style="font-size: 1rem; margin-top: 25px;">👑 Cuentas Administrativas Registradas</h3>
@@ -968,7 +979,6 @@
     </div>
 
     <script>
-        /* SCRIPT DE CAMBIO DE MODO (NOCTURNO / NORMAL) Y CONEXIÓN */
         const themeToggleBtn = document.getElementById('themeToggle');
         const bodyElement = document.body;
         const estadoConexion = document.getElementById('estado-conexion');
@@ -1006,7 +1016,6 @@
             }
         });
 
-        /* LÓGICA PRINCIPAL DE LA APLICACIÓN */
         const EMPRESA_UNICA = { id: "CDJ", nombre: "Corazón De Jesús" };
 
         let empleados = JSON.parse(localStorage.getItem('control_empleados')) || [];
@@ -1015,6 +1024,62 @@
         let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
         let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
         let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
+
+        /* FUNCIONES DE RESPALDO JSON PARA GITHUB PAGES */
+        function exportarRespaldoJSON() {
+            const datosBackup = {
+                empleados,
+                cuentasAdmin,
+                registros,
+                bitacoraTareas,
+                tareasSemanales,
+                fechaRespaldo: new Date().toISOString()
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(datosBackup, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `respaldo_cdj_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importarRespaldoJSON(event) {
+            const archivo = event.target.files[0];
+            if (!archivo) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const datosRestaurados = JSON.parse(e.target.result);
+                    if (datosRestaurados.empleados) {
+                        empleados = datosRestaurados.empleados;
+                        localStorage.setItem('control_empleados', JSON.stringify(empleados));
+                    }
+                    if (datosRestaurados.cuentasAdmin) {
+                        cuentasAdmin = datosRestaurados.cuentasAdmin;
+                        localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+                    }
+                    if (datosRestaurados.registros) {
+                        registros = datosRestaurados.registros;
+                        localStorage.setItem('control_registros', JSON.stringify(registros));
+                    }
+                    if (datosRestaurados.bitacoraTareas) {
+                        bitacoraTareas = datosRestaurados.bitacoraTareas;
+                        localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+                    }
+                    if (datosRestaurados.tareasSemanales) {
+                        tareasSemanales = datosRestaurados.tareasSemanales;
+                        localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+                    }
+                    alert("¡Respaldo importado y restaurado exitosamente!");
+                    renderizarTodoAdmin();
+                } catch (err) {
+                    alert("Error al procesar el archivo JSON: " + err);
+                }
+            };
+            reader.readAsText(archivo);
+        }
 
         function actualizarReloj() {
             const ahora = new Date();
@@ -1067,7 +1132,6 @@
             }
         }
 
-        /* LECTOR QR EN VIVO CON HTML5-QRCODE */
         let html5QrCode = null;
 
         function abrirEscannerQR() {
