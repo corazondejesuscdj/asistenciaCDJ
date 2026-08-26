@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Colaboradores | Corazón De Jesús (CDJ)</title>
+    <!-- Librería ligera para el escaneo de códigos QR en tiempo real -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
             --bg-main: #0b0f19;
@@ -130,6 +132,23 @@
             gap: 8px;
         }
 
+        .offline-indicator {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 8px;
+            display: inline-block;
+        }
+        .offline-indicator.online {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
         nav {
             display: flex;
             justify-content: center;
@@ -235,7 +254,9 @@
             justify-content: center;
             height: 46px;
             flex-shrink: 0;
+            transition: background-color 0.2s;
         }
+        .btn-scan:hover { background: var(--primary-hover); }
         .btn-scan svg { width: 20px; height: 20px; fill: white; }
 
         .btn-info-circulo {
@@ -414,6 +435,15 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
+        
+        .preview-foto {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -432,6 +462,7 @@
         
         <div class="verificador-empresa">
             🏢 Empresa: <span id="verificador-empresa-nombre">Corazón De Jesús (CDJ)</span>
+            <span id="estado-conexion" class="offline-indicator online">Online</span>
         </div>
         
         <nav>
@@ -447,16 +478,15 @@
         <h2 style="margin-top:0; font-size: 1.2rem;">Registro de Jornada</h2>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Tu espacio digital para reportar tu entrada y salida laboral.</p>
         
-        <label>Identificador (ID o NFC):</label>
+        <label>Identificador (ID, QR o NFC):</label>
         <div class="input-group">
-            <input type="text" id="input-nfc-id" placeholder="Ej. TOÑO o EMP-001" autofocus>
+            <input type="text" id="input-nfc-id" placeholder="Ej. EMP-001" autofocus>
             
-            <label for="input-camara-qr" class="btn-scan" title="Escanear Código QR">
+            <button type="button" class="btn-scan" title="Escanear Código QR en Vivo" onclick="abrirEscannerQR()">
                 <svg viewBox="0 0 24 24">
                     <path d="M2,4H5V2H2V4M22,4V2H19V4H22M2,20H5V22H2V20M22,20V22H19V20H22M4,9H6V15H4V9M18,9H20V15H18V9M8,6H10V18H8V6M12,6H16V9H12V6M14,11H16V18H14V11M12,14H13V18H12V14Z"/>
                 </svg>
-            </label>
-            <input type="file" id="input-camara-qr" accept="image/*" capture="environment" class="oculto" onchange="procesarFotoQR(this)">
+            </button>
         </div>
         
         <div class="btns">
@@ -464,9 +494,8 @@
             <button class="btn-secondary" onclick="fichar('salida')">Salida</button>
         </div>
         
-        <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button class="btn-info" onclick="activarNfcReal()" style="font-size: 0.8rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Lector NFC</button>
-            <button class="btn-info" onclick="simularLecturaNFC()" style="font-size: 0.8rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Simular Tarjeta</button>
+        <div style="margin-top: 15px;">
+            <button class="btn-info" onclick="activarNfcReal()" style="width: 100%; font-size: 0.85rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Activar Lector NFC Físico</button>
         </div>
     </section>
 
@@ -479,7 +508,7 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div>
                     <label>ID de Colaborador / Admin:</label>
-                    <input type="text" id="bitacora-id-emp" placeholder="Ej. TOÑO o EMP-001">
+                    <input type="text" id="bitacora-id-emp" placeholder="Ej. EMP-001">
                 </div>
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -515,6 +544,12 @@
                 <label>Descripción / Detalles:</label>
                 <textarea id="bitacora-desc" rows="3" placeholder="Detalla lo realizado..."></textarea>
             </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label>Evidencia Fotográfica (Opcional):</label>
+                <input type="file" id="bitacora-foto" accept="image/*" capture="environment">
+            </div>
+
             <div style="margin-bottom: 15px;">
                 <label>Estado:</label>
                 <select id="bitacora-estado">
@@ -536,6 +571,7 @@
                         <th>Colaborador</th>
                         <th>Zona / Área</th>
                         <th>Actividad</th>
+                        <th>Evidencia</th>
                         <th>Estado</th>
                     </tr>
                 </thead>
@@ -578,7 +614,8 @@
             <input type="email" id="admin-email" placeholder="admin@empresa.com" style="margin-bottom: 12px;">
             <label>Contraseña:</label>
             <input type="password" id="admin-pass" placeholder="••••••••••••" style="margin-bottom: 15px;">
-            <button class="btn-info" style="width:100%; margin-bottom: 12px;" onclick="verificarAdmin()">Acceder al Sistema</button>
+            <button class="btn-info" style="width:100%; margin-bottom: 10px;" onclick="verificarAdmin()">Acceder al Sistema</button>
+            <button class="btn-warning" style="width:100%; margin-bottom: 12px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);" onclick="abrirModalCrearCuentaPrincipal()">Crear Cuenta (Administrador Principal)</button>
             <div id="mensaje-login" class="alerta oculto"></div>
         </div>
 
@@ -648,6 +685,7 @@
                             <th>Colaborador</th>
                             <th>Zona / Área</th>
                             <th>Tarea</th>
+                            <th>Evidencia</th>
                             <th>Estado</th>
                         </tr>
                     </thead>
@@ -688,6 +726,53 @@
         </div>
     </section>
 
+    <!-- MODAL LECTOR QR EN VIVO -->
+    <div id="modal-qr" class="modal oculto">
+        <div class="modal-content">
+            <h3 style="color: var(--primary); margin-top: 0;">Escanear Código QR</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Apunta la cámara hacia el código QR de identificación.</p>
+            <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px;"></div>
+            <button class="btn-secondary" style="width: 100%;" onclick="cerrarEscannerQR()">Cancelar / Cerrar Cámara</button>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR CUENTA PRINCIPAL (DESDE CERO) -->
+    <div id="modal-crear-cuenta" class="modal oculto">
+        <div class="modal-content" style="text-align: left;">
+            <h3 style="color: var(--primary); margin-top:0;">🚀 Crear Cuenta (Administrador Principal)</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Configura tu acceso principal al sistema y tu identificador para fichar.</p>
+
+            <div style="margin-bottom: 10px;">
+                <label>Correo Electrónico (Login):</label>
+                <input type="email" id="crear-correo" placeholder="tu-correo@empresa.com">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Contraseña:</label>
+                <input type="password" id="crear-pass" placeholder="••••••••••••">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Nombre Completo:</label>
+                <input type="text" id="crear-nombre" placeholder="Ej. Administrador">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div>
+                    <label>ID / Nombre / NFC para Fichar:</label>
+                    <input type="text" id="crear-idfichar" placeholder="Ej. EMP-001">
+                </div>
+                <div>
+                    <label>Puesto / Cargo:</label>
+                    <input type="text" id="crear-puesto" value="Super Administrador">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="flex: 1;" onclick="registrarCuentaPrincipalDesdeCero()">Crear Cuenta y Entrar</button>
+                <button class="btn-secondary" style="flex: 1;" onclick="cerrarModalCrearCuentaPrincipal()">Cancelar</button>
+            </div>
+            <div id="mensaje-crear-cuenta" class="alerta oculto"></div>
+        </div>
+    </div>
+
     <!-- MODALES -->
     <div id="modal-alta-admin" class="modal oculto">
         <div class="modal-content" style="text-align: left;">
@@ -696,7 +781,7 @@
 
             <div style="margin-bottom: 10px;">
                 <label>Nombre Completo:</label>
-                <input type="text" id="admin-alta-nombre" placeholder="Ej. Antonio Ramírez">
+                <input type="text" id="admin-alta-nombre" placeholder="Ej. Colaborador Admin">
             </div>
             <div style="margin-bottom: 10px;">
                 <label>Puesto o Cargo:</label>
@@ -736,7 +821,7 @@
 
             <div style="margin-bottom: 10px;">
                 <label>Nombre Completo:</label>
-                <input type="text" id="nuevo-nombre" placeholder="Ej. Salma Yamireth">
+                <input type="text" id="nuevo-nombre" placeholder="Ej. Nombre Colaborador">
             </div>
             <div style="margin-bottom: 10px;">
                 <label>ID de Empleado:</label>
@@ -858,9 +943,23 @@
     </div>
 
     <script>
-        /* SCRIPT DE CAMBIO DE MODO (NOCTURNO / NORMAL) */
+        /* SCRIPT DE CAMBIO DE MODO (NOCTURNO / NORMAL) Y CONEXIÓN */
         const themeToggleBtn = document.getElementById('themeToggle');
         const bodyElement = document.body;
+        const estadoConexion = document.getElementById('estado-conexion');
+
+        function actualizarEstadoConexion() {
+            if (navigator.onLine) {
+                estadoConexion.textContent = "Online";
+                estadoConexion.classList.add('online');
+            } else {
+                estadoConexion.textContent = "Offline (Local)";
+                estadoConexion.classList.remove('online');
+            }
+        }
+        window.addEventListener('online', actualizarEstadoConexion);
+        window.addEventListener('offline', actualizarEstadoConexion);
+        actualizarEstadoConexion();
 
         const currentTheme = localStorage.getItem('theme');
         if (currentTheme === 'light') {
@@ -882,37 +981,22 @@
             }
         });
 
-        /* LÓGICA PRINCIPAL DE LA APLICACIÓN */
+        /* LÓGICA PRINCIPAL DE LA APLICACIÓN (INICIO LIMPIO) */
         const EMPRESA_UNICA = { id: "CDJ", nombre: "Corazón De Jesús" };
 
-        let empleados = JSON.parse(localStorage.getItem('control_empleados')) || [
-            { id: "TOÑO", nombre: "Administrador Principal", puesto: "Super Administrador", nfc: "TOÑO", empresaId: "CDJ" },
-            { id: "EMP-001", nombre: "Salma Yamireth", puesto: "General", nfc: "NFC-SALMA-01", empresaId: "CDJ" }
-        ];
-
-        let cuentasAdmin = JSON.parse(localStorage.getItem('control_cuentas_admin')) || [
-            { nombre: "Administrador Principal", puesto: "Super Administrador", correo: "admin@empresa.com", pass: "admin123", idFichar: "TOÑO", nfcFichar: "TOÑO", jerarquia: "Principal" }
-        ];
-
-        (function sincronizarAdminPrincipal() {
-            let adminPrin = cuentasAdmin.find(a => a.jerarquia === "Principal");
-            if (adminPrin) {
-                adminPrin.idFichar = "TOÑO";
-                adminPrin.nfcFichar = "TOÑO";
-                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-            }
-            let empPrin = empleados.find(e => e.puesto.includes("Super Administrador") || e.id === "ADM-001");
-            if (empPrin) {
-                empPrin.id = "TOÑO";
-                empPrin.nfc = "TOÑO";
-                localStorage.setItem('control_empleados', JSON.stringify(empleados));
-            }
-        })();
-
+        let empleados = [];
+        let cuentasAdmin = [];
         let adminSesionActiva = null;
-        let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
-        let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
-        let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
+        let registros = [];
+        let bitacoraTareas = [];
+        let tareasSemanales = [];
+
+        // Limpieza de almacenamiento local para garantizar un inicio de 0
+        localStorage.removeItem('control_empleados');
+        localStorage.removeItem('control_cuentas_admin');
+        localStorage.removeItem('control_registros');
+        localStorage.removeItem('control_bitacora');
+        localStorage.removeItem('control_tareas_semanales');
 
         function actualizarReloj() {
             const ahora = new Date();
@@ -963,6 +1047,89 @@
                 document.getElementById('btn-tab-admin').classList.add('active');
                 renderizarTodoAdmin();
             }
+        }
+
+        /* LECTOR QR EN VIVO CON HTML5-QRCODE */
+        let html5QrCode = null;
+
+        function abrirEscannerQR() {
+            document.getElementById('modal-qr').classList.remove('oculto');
+            
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                (decodedText) => {
+                    document.getElementById('input-nfc-id').value = decodedText.trim().toUpperCase();
+                    cerrarEscannerQR();
+                    fichar('entrada');
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                alert("No se pudo iniciar la cámara: " + err);
+                cerrarEscannerQR();
+            });
+        }
+
+        function cerrarEscannerQR() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('modal-qr').classList.add('oculto');
+                }).catch(err => {
+                    document.getElementById('modal-qr').classList.add('oculto');
+                });
+            } else {
+                document.getElementById('modal-qr').classList.add('oculto');
+            }
+        }
+
+        function abrirModalCrearCuentaPrincipal() { document.getElementById('modal-crear-cuenta').classList.remove('oculto'); }
+        function cerrarModalCrearCuentaPrincipal() { document.getElementById('modal-crear-cuenta').classList.add('oculto'); }
+
+        function registrarCuentaPrincipalDesdeCero() {
+            const correo = document.getElementById('crear-correo').value.trim().toLowerCase();
+            const pass = document.getElementById('crear-pass').value.trim();
+            const nombre = document.getElementById('crear-nombre').value.trim();
+            const idFichar = document.getElementById('crear-idfichar').value.trim().toUpperCase();
+            const puesto = document.getElementById('crear-puesto').value.trim() || "Super Administrador";
+            const msg = document.getElementById('mensaje-crear-cuenta');
+
+            if (!correo || !pass || !nombre || !idFichar) {
+                mostrarAlerta(msg, "Todos los campos son obligatorios para crear la cuenta.", "error");
+                return;
+            }
+
+            if (cuentasAdmin.length > 0) {
+                mostrarAlerta(msg, "Ya existe una cuenta principal registrada en este navegador.", "error");
+                return;
+            }
+
+            cuentasAdmin.push({
+                nombre, puesto, correo, pass,
+                idFichar: idFichar, nfcFichar: idFichar,
+                jerarquia: "Principal"
+            });
+            localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+
+            empleados.push({
+                id: idFichar, nombre: nombre, puesto: `${puesto} (Admin)`,
+                nfc: idFichar, empresaId: EMPRESA_UNICA.id
+            });
+            localStorage.setItem('control_empleados', JSON.stringify(empleados));
+
+            mostrarAlerta(msg, "¡Cuenta creada con éxito! Iniciando sesión...", "exito");
+
+            setTimeout(() => {
+                cerrarModalCrearCuentaPrincipal();
+                document.getElementById('admin-email').value = correo;
+                document.getElementById('admin-pass').value = pass;
+                verificarAdmin();
+            }, 1000);
         }
 
         function abrirModalAltaAdmin() { document.getElementById('modal-alta-admin').classList.remove('oculto'); }
@@ -1157,6 +1324,7 @@
             const desc = document.getElementById('bitacora-desc').value.trim();
             const estado = document.getElementById('bitacora-estado').value;
             const tareaVinculadaId = document.getElementById('bitacora-vincular-tarea').value;
+            const inputFile = document.getElementById('bitacora-foto');
             const msg = document.getElementById('mensaje-bitacora');
 
             if (!idEmp || !titulo) {
@@ -1170,32 +1338,45 @@
                 return;
             }
 
-            const ahora = new Date();
-            const fechaHora = new Intl.DateTimeFormat('es-MX', { 
-                timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'medium' 
-            }).format(ahora);
+            const procesarGuardado = (fotoBase64) => {
+                const ahora = new Date();
+                const fechaHora = new Intl.DateTimeFormat('es-MX', { 
+                    timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'medium' 
+                }).format(ahora);
 
-            bitacoraTareas.unshift({
-                fechaHora, nombreEmpleado: empleado.nombre, idEmpleado: empleado.id,
-                proyecto, titulo, desc, estado, empresaId: EMPRESA_UNICA.id
-            });
+                bitacoraTareas.unshift({
+                    fechaHora, nombreEmpleado: empleado.nombre, idEmpleado: empleado.id,
+                    proyecto, titulo, desc, estado, foto: fotoBase64 || null, empresaId: EMPRESA_UNICA.id
+                });
 
-            localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+                localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
 
-            let mensajeExtra = "";
-            if (tareaVinculadaId && estado === "Completado") {
-                tareasSemanales = tareasSemanales.filter(t => t.id != tareaVinculadaId);
-                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                mensajeExtra = " ¡Se liberó la tarea del tablero semanal!";
+                let mensajeExtra = "";
+                if (tareaVinculadaId && estado === "Completado") {
+                    tareasSemanales = tareasSemanales.filter(t => t.id != tareaVinculadaId);
+                    localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+                    mensajeExtra = " ¡Se liberó la tarea del tablero semanal!";
+                }
+
+                mostrarAlerta(msg, "¡Tarea registrada con éxito!" + mensajeExtra, "exito");
+                document.getElementById('bitacora-titulo').value = '';
+                document.getElementById('bitacora-desc').value = '';
+                document.getElementById('bitacora-vincular-tarea').value = '';
+                document.getElementById('bitacora-foto').value = '';
+                
+                cargarOpcionesTareasEnBitacora();
+                renderizarBitacoraRecientes();
+            };
+
+            if (inputFile.files && inputFile.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    procesarGuardado(e.target.result);
+                };
+                reader.readAsDataURL(inputFile.files[0]);
+            } else {
+                procesarGuardado(null);
             }
-
-            mostrarAlerta(msg, "¡Tarea registrada con éxito!" + mensajeExtra, "exito");
-            document.getElementById('bitacora-titulo').value = '';
-            document.getElementById('bitacora-desc').value = '';
-            document.getElementById('bitacora-vincular-tarea').value = '';
-            
-            cargarOpcionesTareasEnBitacora();
-            renderizarBitacoraRecientes();
         }
 
         async function activarNfcReal() {
@@ -1215,14 +1396,6 @@
             } else { alert("Navegador sin soporte Web NFC directo."); }
         }
 
-        function procesarFotoQR(input) {
-            if (input.files && input.files[0] && empleados.length > 0) {
-                document.getElementById('input-nfc-id').value = empleados[0].nfc;
-                input.value = '';
-                alert("¡Código QR procesado! Colaborador: " + empleados[0].nombre);
-            }
-        }
-
         function fichar(tipo) {
             const inputVal = document.getElementById('input-nfc-id').value.trim().toUpperCase();
             if (!inputVal) { alert("Por favor ingrese su ID o NFC."); return; }
@@ -1230,6 +1403,8 @@
             const empleado = empleados.find(e => e.id.toUpperCase() === inputVal || e.nfc.toUpperCase() === inputVal);
             if (!empleado) {
                 mostrarPopupResultado("Acceso Denegado", `<strong style="color:var(--danger);">Identificador no registrado.</strong>`, false);
+                // Limpiamos el campo incluso si hay error para mantener la seguridad
+                document.getElementById('input-nfc-id').value = '';
                 return;
             }
 
@@ -1249,6 +1424,8 @@
                 if (abierto) {
                     mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa.`, false);
                     mostrarModulosJornada();
+                    // Limpieza inmediata del input
+                    document.getElementById('input-nfc-id').value = '';
                     return;
                 }
 
@@ -1269,6 +1446,7 @@
                 const abierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
                 if (!abierto) {
                     mostrarPopupResultado("Aviso", `No hay entrada registrada hoy para <strong>${empleado.nombre}</strong>.`, false);
+                    document.getElementById('input-nfc-id').value = '';
                     return;
                 }
 
@@ -1294,6 +1472,8 @@
             }
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
+            
+            // LIMPIEZA AUTOMÁTICA DEL CAMPO DE TEXTO AL REGISTRAR EXITOSAMENTE
             document.getElementById('input-nfc-id').value = '';
         }
 
@@ -1302,7 +1482,7 @@
             tbody.innerHTML = '';
 
             if (bitacoraTareas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Sin tareas registradas.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Sin tareas registradas.</td></tr>`;
                 return;
             }
             bitacoraTareas.slice(0, 15).forEach(t => {
@@ -1312,17 +1492,11 @@
                     <td><strong>${t.nombreEmpleado}</strong></td>
                     <td><span style="color:var(--primary);">${t.proyecto}</span></td>
                     <td><strong>${t.titulo}</strong><br><small style="color:var(--text-muted);">${t.desc}</small></td>
+                    <td>${t.foto ? `<img src="${t.foto}" class="preview-foto" alt="Evidencia">` : '<small style="color:var(--text-muted);">Sin foto</small>'}</td>
                     <td><strong>${t.estado}</strong></td>
                 `;
                 tbody.appendChild(tr);
             });
-        }
-
-        function simularLecturaNFC() {
-            if (empleados.length > 0) {
-                document.getElementById('input-nfc-id').value = "TOÑO";
-                fichar('entrada');
-            }
         }
 
         function mostrarPopupResultado(titulo, htmlInfo, esExito) {
@@ -1494,16 +1668,20 @@
 
             const tbodyStats = document.getElementById('tabla-estadisticas').querySelector('tbody');
             tbodyStats.innerHTML = '';
-            empleados.forEach(emp => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td><strong>${emp.nombre}</strong></td><td>0 hrs</td><td>0 días</td><td>0 hrs</td>`;
-                tbodyStats.appendChild(tr);
-            });
+            if (empleados.length === 0) {
+                tbodyStats.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin colaboradores registrados.</td></tr>`;
+            } else {
+                empleados.forEach(emp => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td><strong>${emp.nombre}</strong></td><td>0 hrs</td><td>0 días</td><td>0 hrs</td>`;
+                    tbodyStats.appendChild(tr);
+                });
+            }
 
             const tbodyBitAdmin = document.getElementById('tabla-admin-bitacora').querySelector('tbody');
             tbodyBitAdmin.innerHTML = '';
             if (bitacoraTareas.length === 0) {
-                tbodyBitAdmin.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Sin registros en la bitácora global.</td></tr>`;
+                tbodyBitAdmin.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Sin registros en la bitácora global.</td></tr>`;
             } else {
                 bitacoraTareas.forEach(t => {
                     const tr = document.createElement('tr');
@@ -1512,6 +1690,7 @@
                         <td><strong>${t.nombreEmpleado}</strong></td>
                         <td>${t.proyecto}</td>
                         <td>${t.titulo}</td>
+                        <td>${t.foto ? `<img src="${t.foto}" class="preview-foto" alt="Evidencia">` : '<small style="color:var(--text-muted);">Sin foto</small>'}</td>
                         <td><strong>${t.estado}</strong></td>
                     `;
                     tbodyBitAdmin.appendChild(tr);
@@ -1537,20 +1716,24 @@
 
             const tbodyEmp = document.getElementById('tabla-empleados').querySelector('tbody');
             tbodyEmp.innerHTML = '';
-            empleados.forEach((e, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${e.nombre}</td>
-                    <td>${e.id}</td>
-                    <td>${e.puesto}</td>
-                    <td>${e.nfc}</td>
-                    <td>
-                        <button class="btn-warning" style="padding:4px 8px; font-size:0.75rem; margin-right:4px;" onclick="abrirModalEditar('empleado', ${index})">Editar</button>
-                        <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarEmpleado(${index})">Eliminar</button>
-                    </td>
-                `;
-                tbodyEmp.appendChild(tr);
-            });
+            if (empleados.length === 0) {
+                tbodyEmp.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Sin personal registrado.</td></tr>`;
+            } else {
+                empleados.forEach((e, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${e.nombre}</td>
+                        <td>${e.id}</td>
+                        <td>${e.puesto}</td>
+                        <td>${e.nfc}</td>
+                        <td>
+                            <button class="btn-warning" style="padding:4px 8px; font-size:0.75rem; margin-right:4px;" onclick="abrirModalEditar('empleado', ${index})">Editar</button>
+                            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarEmpleado(${index})">Eliminar</button>
+                        </td>
+                    `;
+                    tbodyEmp.appendChild(tr);
+                });
+            }
         }
 
         function eliminarEmpleado(index) {
