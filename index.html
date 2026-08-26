@@ -1409,7 +1409,6 @@
             const empleado = empleados.find(e => e.id.toUpperCase() === inputVal || e.nfc.toUpperCase() === inputVal);
             if (!empleado) {
                 mostrarPopupResultado("Acceso Denegado", `<strong style="color:var(--danger);">Identificador no registrado.</strong>`, false);
-                // Limpiamos el campo incluso si hay error para mantener la seguridad
                 document.getElementById('input-nfc-id').value = '';
                 return;
             }
@@ -1430,7 +1429,6 @@
                 if (abierto) {
                     mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa.`, false);
                     mostrarModulosJornada();
-                    // Limpieza inmediata del input
                     document.getElementById('input-nfc-id').value = '';
                     return;
                 }
@@ -1479,7 +1477,7 @@
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
             
-            // LIMPIEZA AUTOMÁTICA DEL CAMPO DE TEXTO AL REGISTRAR EXITOSAMENTE
+            // Limpieza automática del campo de texto al registrar exitosamente
             document.getElementById('input-nfc-id').value = '';
         }
 
