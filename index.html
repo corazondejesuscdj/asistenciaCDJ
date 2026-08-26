@@ -12,6 +12,25 @@
     <link rel="icon" type="image/png" href="LOGOCDJ.png">
     <!-- Librería ligera para el escaneo de códigos QR en tiempo real -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- CONFIGURACIÓN DE FIREBASE INTEGRADA -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+      // TODO: Agregar aquí los SDKs adicionales de Firebase que requieras (Firestore, Auth, etc.)
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyA7edmm2X6rQQxB4YYhFFBEbV4rH2Zpc2E",
+        authDomain: "corazon-de-jesus-b1987.firebaseapp.com",
+        projectId: "corazon-de-jesus-b1987",
+        storageBucket: "corazon-de-jesus-b1987.firebasestorage.app",
+        messagingSenderId: "765026412541",
+        appId: "1:765026412541:web:bdf6a3b6a65479a5971b94"
+      };
+
+      // Inicializar Firebase
+      const app = initializeApp(firebaseConfig);
+    </script>
+
     <style>
         :root {
             --bg-main: #0b0f19;
@@ -987,7 +1006,7 @@
             }
         });
 
-        /* LÓGICA PRINCIPAL DE LA APLICACIÓN (INICIO LIMPIO) */
+        /* LÓGICA PRINCIPAL DE LA APLICACIÓN */
         const EMPRESA_UNICA = { id: "CDJ", nombre: "Corazón De Jesús" };
 
         let empleados = [];
@@ -997,7 +1016,7 @@
         let bitacoraTareas = [];
         let tareasSemanales = [];
 
-        // Limpieza de almacenamiento local para garantizar un inicio de 0
+        // Limpieza inicial para garantizar un inicio limpio
         localStorage.removeItem('control_empleados');
         localStorage.removeItem('control_cuentas_admin');
         localStorage.removeItem('control_registros');
@@ -1476,8 +1495,6 @@
             }
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
-            
-            // Limpieza automática del campo de texto al registrar exitosamente
             document.getElementById('input-nfc-id').value = '';
         }
 
