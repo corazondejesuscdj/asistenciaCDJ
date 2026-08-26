@@ -13,9 +13,12 @@
     <!-- Librería ligera para el escaneo de códigos QR en tiempo real -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
-    <!-- CONFIGURACIÓN DE FIREBASE INTEGRADA -->
+    <!-- CONFIGURACIÓN DE FIREBASE E INTEGRACIÓN FIRESTORE -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+      import { 
+        getFirestore, collection, getDocs, addDoc, setDoc, doc, deleteDoc, updateDoc, query, orderBy 
+      } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyA7edmm2X6rQQxB4YYhFFBEbV4rH2Zpc2E",
@@ -27,6 +30,15 @@
       };
 
       const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // Exponer funciones de Firebase globalmente para que el portal las consuma
+      window.db = db;
+      window.firebaseEnabled = true;
+      window.fsModule = { collection, getDocs, addDoc, setDoc, doc, deleteDoc, updateDoc, query, orderBy };
+      
+      // Lanzar evento personalizado cuando Firebase esté listo
+      window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
     <style>
@@ -666,10 +678,10 @@
                 </button>
             </div>
 
-            <!-- SECCIÓN DE RESPALDO ANTI-BORRADO LOCAL (IDEAL PARA GITHUB PAGES) -->
+            <!-- SECCIÓN DE RESPALDO ANTI-BORRADO LOCAL -->
             <div style="background: var(--bg-input); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
                 <div>
-                    <strong style="font-size: 0.9rem; display: block;">💾 Respaldo de Base de Datos Local</strong>
+                    <strong style="font-size: 0.9rem; display: block;">💾 Respaldo de Base de Datos Local / Nube</strong>
                     <small style="color: var(--text-muted);">Exporta o importa tus datos en formato JSON para prevenir pérdidas por caché del navegador.</small>
                 </div>
                 <div style="display: flex; gap: 10px;">
@@ -944,7 +956,7 @@
         <div class="modal-content" style="max-width: 500px; text-align: left;">
             <h3 style="color: var(--primary); margin-top: 0;" id="modal-editar-titulo">Editar Registro</h3>
             <input type="hidden" id="edit-tipo" value="">
-            <input type="hidden" id="edit-index" value="">
+            <input type="hidden" id="edit-id-doc" value="">
 
             <div style="margin-bottom: 12px;">
                 <label>Nombre:</label>
@@ -985,7 +997,7 @@
 
         function actualizarEstadoConexion() {
             if (navigator.onLine) {
-                estadoConexion.textContent = "Online";
+                estadoConexion.textContent = "Online (Cloud + Local)";
                 estadoConexion.classList.add('online');
             } else {
                 estadoConexion.textContent = "Offline (Local)";
@@ -1006,7 +1018,6 @@
 
         themeToggleBtn.addEventListener('click', () => {
             bodyElement.classList.toggle('light-mode');
-            
             if (bodyElement.classList.contains('light-mode')) {
                 themeToggleBtn.textContent = '🌙';
                 localStorage.setItem('theme', 'light');
@@ -1025,14 +1036,61 @@
         let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
         let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
 
-        /* FUNCIONES DE RESPALDO JSON PARA GITHUB PAGES */
+        // Sincronización con Firestore cuando esté listo
+        window.addEventListener('firebase-ready', async () => {
+            try {
+                await sincronizarDatosDesdeCloud();
+                actualizarEstadoConexion();
+            } catch (e) {
+                console.warn("Trabajando en modo offline o error al sincronizar con Firebase:", e);
+            }
+        });
+
+        async function sincronizarDatosDesdeCloud() {
+            if (!window.firebaseEnabled) return;
+            const { collection, getDocs } = window.fsModule;
+            const db = window.db;
+
+            // Empleados
+            const snapEmp = await getDocs(collection(db, "empleados"));
+            if (!snapEmp.empty) {
+                empleados = snapEmp.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
+            }
+
+            // Admins
+            const snapAdmin = await getDocs(collection(db, "cuentasAdmin"));
+            if (!snapAdmin.empty) {
+                cuentasAdmin = snapAdmin.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+            }
+
+            // Registros de asistencia
+            const snapReg = await getDocs(collection(db, "registros"));
+            if (!snapReg.empty) {
+                registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_registros', JSON.stringify(registros));
+            }
+
+            // Bitácora
+            const snapBit = await getDocs(collection(db, "bitacoraTareas"));
+            if (!snapBit.empty) {
+                bitacoraTareas = snapBit.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+            }
+
+            // Tareas semanales
+            const snapTar = await getDocs(collection(db, "tareasSemanales"));
+            if (!snapTar.empty) {
+                tareasSemanales = snapTar.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+            }
+        }
+
+        /* RESPALDO JSON */
         function exportarRespaldoJSON() {
             const datosBackup = {
-                empleados,
-                cuentasAdmin,
-                registros,
-                bitacoraTareas,
-                tareasSemanales,
+                empleados, cuentasAdmin, registros, bitacoraTareas, tareasSemanales,
                 fechaRespaldo: new Date().toISOString()
             };
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(datosBackup, null, 2));
@@ -1136,13 +1194,10 @@
 
         function abrirEscannerQR() {
             document.getElementById('modal-qr').classList.remove('oculto');
-            
             if (!html5QrCode) {
                 html5QrCode = new Html5Qrcode("reader");
             }
-
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
             html5QrCode.start(
                 { facingMode: "environment" }, 
                 config, 
@@ -1173,7 +1228,7 @@
         function abrirModalCrearCuentaPrincipal() { document.getElementById('modal-crear-cuenta').classList.remove('oculto'); }
         function cerrarModalCrearCuentaPrincipal() { document.getElementById('modal-crear-cuenta').classList.add('oculto'); }
 
-        function registrarCuentaPrincipalDesdeCero() {
+        async function registrarCuentaPrincipalDesdeCero() {
             const correo = document.getElementById('crear-correo').value.trim().toLowerCase();
             const pass = document.getElementById('crear-pass').value.trim();
             const nombre = document.getElementById('crear-nombre').value.trim();
@@ -1187,21 +1242,36 @@
             }
 
             if (cuentasAdmin.length > 0) {
-                mostrarAlerta(msg, "Ya existe una cuenta principal registrada en este navegador.", "error");
+                mostrarAlerta(msg, "Ya existe una cuenta principal registrada.", "error");
                 return;
             }
 
-            cuentasAdmin.push({
+            const nuevoAdminObj = {
                 nombre, puesto, correo, pass,
                 idFichar: idFichar, nfcFichar: idFichar,
                 jerarquia: "Principal"
-            });
-            localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+            };
 
-            empleados.push({
+            const nuevoEmpObj = {
                 id: idFichar, nombre: nombre, puesto: `${puesto} (Admin)`,
                 nfc: idFichar, empresaId: EMPRESA_UNICA.id
-            });
+            };
+
+            if (window.firebaseEnabled) {
+                try {
+                    const { collection, addDoc } = window.fsModule;
+                    const docAdminRef = await addDoc(collection(window.db, "cuentasAdmin"), nuevoAdminObj);
+                    const docEmpRef = await addDoc(collection(window.db, "empleados"), nuevoEmpObj);
+                    nuevoAdminObj.idDoc = docAdminRef.id;
+                    nuevoEmpObj.idDoc = docEmpRef.id;
+                } catch (e) {
+                    console.warn("Guardado local debido a fallo en nube:", e);
+                }
+            }
+
+            cuentasAdmin.push(nuevoAdminObj);
+            empleados.push(nuevoEmpObj);
+            localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
             localStorage.setItem('control_empleados', JSON.stringify(empleados));
 
             mostrarAlerta(msg, "¡Cuenta creada con éxito! Iniciando sesión...", "exito");
@@ -1226,7 +1296,7 @@
         function abrirModalCroquis() { document.getElementById('modal-croquis').classList.remove('oculto'); }
         function cerrarModalCroquis() { document.getElementById('modal-croquis').classList.add('oculto'); }
 
-        function guardarNuevoAdminDesdePanel() {
+        async function guardarNuevoAdminDesdePanel() {
             const nombre = document.getElementById('admin-alta-nombre').value.trim();
             const puesto = document.getElementById('admin-alta-puesto').value.trim();
             const correo = document.getElementById('admin-alta-correo').value.trim().toLowerCase();
@@ -1250,13 +1320,25 @@
                 return;
             }
 
-            cuentasAdmin.push({ nombre, puesto, correo, pass, idFichar, nfcFichar, jerarquia: "Administrador" });
-            localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+            const nuevoAdminObj = { nombre, puesto, correo, pass, idFichar, nfcFichar, jerarquia: "Administrador" };
+            const nuevoEmpObj = { id: idFichar, nombre: nombre, puesto: `${puesto} (Admin)`, nfc: nfcFichar, empresaId: EMPRESA_UNICA.id };
 
-            empleados.push({ id: idFichar, nombre: nombre, puesto: `${puesto} (Admin)`, nfc: nfcFichar, empresaId: EMPRESA_UNICA.id });
+            if (window.firebaseEnabled) {
+                try {
+                    const { collection, addDoc } = window.fsModule;
+                    const docA = await addDoc(collection(window.db, "cuentasAdmin"), nuevoAdminObj);
+                    const docE = await addDoc(collection(window.db, "empleados"), nuevoEmpObj);
+                    nuevoAdminObj.idDoc = docA.id;
+                    nuevoEmpObj.idDoc = docE.id;
+                } catch (e) { console.warn(e); }
+            }
+
+            cuentasAdmin.push(nuevoAdminObj);
+            empleados.push(nuevoEmpObj);
+            localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
             localStorage.setItem('control_empleados', JSON.stringify(empleados));
 
-            mostrarAlerta(msg, "¡Administrador y colaborador registrado exitosamente!", "exito");
+            mostrarAlerta(msg, "¡Administrador registrado exitosamente!", "exito");
 
             document.getElementById('admin-alta-nombre').value = '';
             document.getElementById('admin-alta-puesto').value = '';
@@ -1271,7 +1353,7 @@
             }, 1200);
         }
 
-        function guardarEmpleado() {
+        async function guardarEmpleado() {
             const nombre = document.getElementById('nuevo-nombre').value.trim();
             const id = document.getElementById('nuevo-id').value.trim().toUpperCase();
             const puesto = document.getElementById('nuevo-puesto').value.trim();
@@ -1283,7 +1365,17 @@
                 return;
             }
 
-            empleados.push({ id, nombre, puesto: puesto || 'General', nfc, empresaId: EMPRESA_UNICA.id });
+            const nuevoEmpObj = { id, nombre, puesto: puesto || 'General', nfc, empresaId: EMPRESA_UNICA.id };
+
+            if (window.firebaseEnabled) {
+                try {
+                    const { collection, addDoc } = window.fsModule;
+                    const docRef = await addDoc(collection(window.db, "empleados"), nuevoEmpObj);
+                    nuevoEmpObj.idDoc = docRef.id;
+                } catch (e) { console.warn(e); }
+            }
+
+            empleados.push(nuevoEmpObj);
             localStorage.setItem('control_empleados', JSON.stringify(empleados));
             
             mostrarAlerta(msg, "¡Empleado registrado con éxito!", "exito");
@@ -1299,7 +1391,7 @@
             }, 1200);
         }
 
-        function guardarTareaSemanalAdmin() {
+        async function guardarTareaSemanalAdmin() {
             const titulo = document.getElementById('admin-tarea-titulo').value.trim();
             const prioridad = document.getElementById('admin-tarea-prioridad').value;
             const zona = document.getElementById('admin-tarea-zona').value;
@@ -1311,7 +1403,17 @@
                 return;
             }
 
-            tareasSemanales.push({ id: Date.now(), titulo, prioridad, zona, desc, empresaId: EMPRESA_UNICA.id });
+            const nuevaTareaObj = { id: Date.now(), titulo, prioridad, zona, desc, empresaId: EMPRESA_UNICA.id };
+
+            if (window.firebaseEnabled) {
+                try {
+                    const { collection, addDoc } = window.fsModule;
+                    const docRef = await addDoc(collection(window.db, "tareasSemanales"), nuevaTareaObj);
+                    nuevaTareaObj.idDoc = docRef.id;
+                } catch (e) { console.warn(e); }
+            }
+
+            tareasSemanales.push(nuevaTareaObj);
             localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
             mostrarAlerta(msg, "¡Tarea asignada con éxito!", "exito");
 
@@ -1420,21 +1522,37 @@
                 return;
             }
 
-            const procesarGuardado = (fotoBase64) => {
+            const procesarGuardado = async (fotoBase64) => {
                 const ahora = new Date();
                 const fechaHora = new Intl.DateTimeFormat('es-MX', { 
                     timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'medium' 
                 }).format(ahora);
 
-                bitacoraTareas.unshift({
+                const nuevaBitacoraObj = {
                     fechaHora, nombreEmpleado: empleado.nombre, idEmpleado: empleado.id,
                     proyecto, titulo, desc, estado, foto: fotoBase64 || null, empresaId: EMPRESA_UNICA.id
-                });
+                };
 
+                if (window.firebaseEnabled) {
+                    try {
+                        const { collection, addDoc } = window.fsModule;
+                        const docRef = await addDoc(collection(window.db, "bitacoraTareas"), nuevaBitacoraObj);
+                        nuevaBitacoraObj.idDoc = docRef.id;
+                    } catch (e) { console.warn(e); }
+                }
+
+                bitacoraTareas.unshift(nuevaBitacoraObj);
                 localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
 
                 let mensajeExtra = "";
                 if (tareaVinculadaId && estado === "Completado") {
+                    const tareaMatch = tareasSemanales.find(t => t.id == tareaVinculadaId);
+                    if (tareaMatch && window.firebaseEnabled && tareaMatch.idDoc) {
+                        try {
+                            const { doc, deleteDoc } = window.fsModule;
+                            await deleteDoc(doc(window.db, "tareasSemanales", tareaMatch.idDoc));
+                        } catch (e) { console.warn(e); }
+                    }
                     tareasSemanales = tareasSemanales.filter(t => t.id != tareaVinculadaId);
                     localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
                     mensajeExtra = " ¡Se liberó la tarea del tablero semanal!";
@@ -1478,7 +1596,7 @@
             } else { alert("Navegador sin soporte Web NFC directo."); }
         }
 
-        function fichar(tipo) {
+        async function fichar(tipo) {
             const inputVal = document.getElementById('input-nfc-id').value.trim().toUpperCase();
             if (!inputVal) { alert("Por favor ingrese su ID o NFC."); return; }
 
@@ -1512,12 +1630,21 @@
                 const [hActual, mActual, sActual] = horaActual.split(':').map(Number);
                 const esTarde = (hActual * 3600 + mActual * 60 + sActual) > ((9 * 3600) + (10 * 60));
 
-                registros.push({
+                const nuevoRegObj = {
                     idReg: Date.now(), idEmpleado: empleado.id, nombre: empleado.nombre, fechaEntrada: fechaActual,
                     horaEntrada: horaActual, anio: ahora.getFullYear(), timestampEntrada: ahora.getTime(), esTarde,
                     fechaSalida: null, horaSalida: null, segundosLaborados: 0, tiempoLaborado: "-", empresaId: EMPRESA_UNICA.id
-                });
+                };
 
+                if (window.firebaseEnabled) {
+                    try {
+                        const { collection, addDoc } = window.fsModule;
+                        const docRef = await addDoc(collection(window.db, "registros"), nuevoRegObj);
+                        nuevoRegObj.idDoc = docRef.id;
+                    } catch (e) { console.warn(e); }
+                }
+
+                registros.push(nuevoRegObj);
                 document.getElementById('bitacora-id-emp').value = empleado.id;
 
                 mostrarModulosJornada();
@@ -1543,6 +1670,18 @@
                 const m = Math.floor((diff % 3600) / 60);
                 const s = diff % 60;
                 abierto.tiempoLaborado = `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
+
+                if (window.firebaseEnabled && abierto.idDoc) {
+                    try {
+                        const { doc, updateDoc } = window.fsModule;
+                        await updateDoc(doc(window.db, "registros", abierto.idDoc), {
+                            fechaSalida: fechaActual,
+                            horaSalida: horaActual,
+                            segundosLaborados: diff,
+                            tiempoLaborado: abierto.tiempoLaborado
+                        });
+                    } catch (e) { console.warn(e); }
+                }
 
                 ocultarModulosJornada();
                 cambiarVista('fichar');
@@ -1616,7 +1755,7 @@
 
         function abrirModalEditar(tipo, index) {
             document.getElementById('edit-tipo').value = tipo;
-            document.getElementById('edit-index').value = index;
+            document.getElementById('edit-id-doc').value = index;
 
             if (tipo === 'admin') {
                 const adm = cuentasAdmin[index];
@@ -1655,9 +1794,9 @@
             document.getElementById('modal-editar').classList.add('oculto');
         }
 
-        function guardarEdicionModal() {
+        async function guardarEdicionModal() {
             const tipo = document.getElementById('edit-tipo').value;
-            const index = parseInt(document.getElementById('edit-index').value);
+            const index = parseInt(document.getElementById('edit-id-doc').value);
 
             const nuevoNombre = document.getElementById('edit-nombre').value.trim();
             const nuevoPuesto = document.getElementById('edit-puesto').value.trim();
@@ -1673,7 +1812,6 @@
                 const nuevoCorreo = document.getElementById('edit-correo').value.trim().toLowerCase();
                 const nuevaPass = document.getElementById('edit-pass').value.trim();
                 const adminActual = cuentasAdmin[index];
-
                 const antiguoIdFichar = adminActual.idFichar;
 
                 adminActual.nombre = nuevoNombre;
@@ -1683,6 +1821,16 @@
                 adminActual.idFichar = nuevoIdFichar;
                 adminActual.nfcFichar = nuevoNfc;
 
+                if (window.firebaseEnabled && adminActual.idDoc) {
+                    try {
+                        const { doc, updateDoc } = window.fsModule;
+                        await updateDoc(doc(window.db, "cuentasAdmin", adminActual.idDoc), {
+                            nombre: nuevoNombre, puesto: nuevoPuesto, correo: nuevoCorreo,
+                            pass: nuevaPass, idFichar: nuevoIdFichar, nfcFichar: nuevoNfc
+                        });
+                    } catch (e) { console.warn(e); }
+                }
+
                 localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
 
                 const empVinculado = empleados.find(e => e.id === antiguoIdFichar || e.nfc === adminActual.nfcFichar);
@@ -1691,8 +1839,14 @@
                     empVinculado.nombre = nuevoNombre;
                     empVinculado.puesto = `${nuevoPuesto} (Admin)`;
                     empVinculado.nfc = nuevoNfc;
-                } else {
-                    empleados.push({ id: nuevoIdFichar, nombre: nuevoNombre, puesto: `${nuevoPuesto} (Admin)`, nfc: nuevoNfc, empresaId: EMPRESA_UNICA.id });
+                    if (window.firebaseEnabled && empVinculado.idDoc) {
+                        try {
+                            const { doc, updateDoc } = window.fsModule;
+                            await updateDoc(doc(window.db, "empleados", empVinculado.idDoc), {
+                                id: nuevoIdFichar, nombre: nuevoNombre, puesto: `${nuevoPuesto} (Admin)`, nfc: nuevoNfc
+                            });
+                        } catch (e) { console.warn(e); }
+                    }
                 }
                 localStorage.setItem('control_empleados', JSON.stringify(empleados));
 
@@ -1703,6 +1857,15 @@
                 empActual.id = nuevoIdFichar;
                 empActual.nfc = nuevoNfc;
 
+                if (window.firebaseEnabled && empActual.idDoc) {
+                    try {
+                        const { doc, updateDoc } = window.fsModule;
+                        await updateDoc(doc(window.db, "empleados", empActual.idDoc), {
+                            nombre: nuevoNombre, puesto: nuevoPuesto, id: nuevoIdFichar, nfc: nuevoNfc
+                        });
+                    } catch (e) { console.warn(e); }
+                }
+
                 localStorage.setItem('control_empleados', JSON.stringify(empleados));
             }
 
@@ -1711,32 +1874,56 @@
             alert("¡Cambios guardados correctamente!");
         }
 
-        function eliminarAdmin(index) {
-            if (!adminSesionActiva) {
-                alert("Debes iniciar sesión para realizar esta acción.");
-                return;
-            }
-
-            if (adminSesionActiva.jerarquia !== "Principal") {
-                alert("Acceso denegado: Los administradores secundarios no tienen permisos para eliminar a otros administradores.");
+        async function eliminarAdmin(index) {
+            if (!adminSesionActiva || adminSesionActiva.jerarquia !== "Principal") {
+                alert("Acceso denegado.");
                 return;
             }
 
             const adminTarget = cuentasAdmin[index];
-
             if (adminTarget.jerarquia === "Principal") {
-                alert("No es posible eliminar la cuenta del Administrador Principal.");
+                alert("No es posible eliminar al Administrador Principal.");
                 return;
             }
 
             if (confirm(`¿Estás seguro de eliminar al administrador ${adminTarget.nombre}?`)) {
+                if (window.firebaseEnabled && adminTarget.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "cuentasAdmin", adminTarget.idDoc));
+                    } catch (e) { console.warn(e); }
+                }
+
                 cuentasAdmin.splice(index, 1);
                 localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
                 
                 if (adminTarget.idFichar) {
+                    const empTarget = empleados.find(e => e.id === adminTarget.idFichar);
+                    if (empTarget && window.firebaseEnabled && empTarget.idDoc) {
+                        try {
+                            const { doc, deleteDoc } = window.fsModule;
+                            await deleteDoc(doc(window.db, "empleados", empTarget.idDoc));
+                        } catch (e) { console.warn(e); }
+                    }
                     empleados = empleados.filter(e => e.id !== adminTarget.idFichar);
                     localStorage.setItem('control_empleados', JSON.stringify(empleados));
                 }
+                renderizarTodoAdmin();
+            }
+        }
+
+        async function eliminarEmpleado(index) {
+            if (confirm("¿Eliminar colaborador?")) {
+                const empTarget = empleados[index];
+                if (window.firebaseEnabled && empTarget.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "empleados", empTarget.idDoc));
+                    } catch (e) { console.warn(e); }
+                }
+
+                empleados.splice(index, 1);
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
                 renderizarTodoAdmin();
             }
         }
@@ -1811,14 +1998,6 @@
                     `;
                     tbodyEmp.appendChild(tr);
                 });
-            }
-        }
-
-        function eliminarEmpleado(index) {
-            if (confirm("¿Eliminar colaborador?")) {
-                empleados.splice(index, 1);
-                localStorage.setItem('control_empleados', JSON.stringify(empleados));
-                renderizarTodoAdmin();
             }
         }
 
