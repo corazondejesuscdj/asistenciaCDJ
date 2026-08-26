@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Colaboradores | Corazón De Jesús (CDJ)</title>
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #111827;
+            --bg-input: #1f2937;
+            --border-color: #374151;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        body.light-mode {
+            --bg-main: #f4f4f9;
+            --bg-card: #ffffff;
+            --bg-input: #e5e7eb;
+            --border-color: #d1d5db;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #1f2937;
+            --text-muted: #4b5563;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .theme-toggle-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease, background-color 0.3s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .logo-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            display: inline-block;
+            padding: 12px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            margin-bottom: 15px;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .logo-empresa {
+            width: 65px;
+            height: 65px;
+            object-fit: contain;
+            display: block;
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.025em;
+        }
+
+        #reloj {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--primary);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            display: inline-block;
+            padding: 8px 24px;
+            border-radius: 9999px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .verificador-empresa {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        nav {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 25px;
+            background: var(--bg-card);
+            padding: 8px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(8px);
+            width: 100%;
+            max-width: 550px;
+            margin-left: auto;
+            margin-right: auto;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        nav button {
+            flex: 1;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        nav button:hover:not(.active) {
+            color: var(--text-main);
+            background: rgba(128, 128, 128, 0.1);
+        }
+
+        nav button.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: white;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 460px;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card-wide {
+            max-width: 950px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            box-sizing: border-box;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s, background-color 0.3s ease, color 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-scan {
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 0 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 46px;
+            flex-shrink: 0;
+        }
+        .btn-scan svg { width: 20px; height: 20px; fill: white; }
+
+        .btn-info-circulo {
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            border: 1.5px solid var(--text-muted);
+            border-radius: 50%;
+            color: var(--text-muted);
+            font-family: serif;
+            font-style: italic;
+            font-weight: bold;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+
+        .btn-primary { background: var(--success); }
+        .btn-secondary { background: var(--danger); }
+        .btn-info { background: var(--primary); }
+        .btn-warning { background: var(--warning); color: #000; }
+
+        .btn-registrar-elegante {
+            width: 100%;
+            background: linear-gradient(135deg, var(--success), var(--success-hover));
+            color: #ffffff;
+            border: none;
+            padding: 14px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+            margin-top: 5px;
+        }
+
+        .acciones-rapidas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .btn-accion-emergente {
+            padding: 16px;
+            border-radius: 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-accion-emergente:hover {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .oculto { display: none !important; }
+
+        .contenedor-prioridades {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .columna-prioridad {
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .columna-prioridad.alta { border-top: 4px solid var(--danger); }
+        .columna-prioridad.media { border-top: 4px solid var(--warning); }
+        .columna-prioridad.baja { border-top: 4px solid var(--success); }
+
+        .titulo-prioridad {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tarjeta-tarea-semanal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.88rem;
+        }
+
+        .tarjeta-tarea-semanal strong { display: block; margin-bottom: 4px; }
+        .tarjeta-tarea-semanal small { color: var(--text-muted); display: block; margin-bottom: 6px; }
+
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 999;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 16px;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin-top: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--bg-input); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+
+        .alerta {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .alerta.exito { background-color: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .alerta.error { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .badge-maxima {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <!-- BOTÓN MODO NORMAL / NOCTURNO -->
+        <button id="themeToggle" class="theme-toggle-btn" title="Cambiar modo de vista" aria-label="Cambiar modo de vista">
+            ☀️
+        </button>
+
+        <div class="logo-container">
+            <img src="img/LOGOCDJ.png" alt="Logo Corazón De Jesús" class="logo-empresa" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'65\' height=\'65\'><rect width=\'100%\' height=\'100%\' fill=\'%23111827\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%233b82f6\' font-weight=\'bold\' font-size=\'14\'>CDJ</text></svg>';">
+        </div>
+        <h1>Portal de Colaboradores</h1>
+        <div id="reloj">00:00:00</div>
+        
+        <div class="verificador-empresa">
+            🏢 Empresa: <span id="verificador-empresa-nombre">Corazón De Jesús (CDJ)</span>
+        </div>
+        
+        <nav>
+            <button id="btn-tab-fichar" class="active" onclick="cambiarVista('fichar')">Fichar</button>
+            <button id="btn-tab-bitacora" class="oculto" onclick="cambiarVista('bitacora')">Bitácora</button>
+            <button id="btn-tab-tareas" class="oculto" onclick="cambiarVista('tareas')">Tareas</button>
+            <button id="btn-tab-admin" onclick="cambiarVista('admin')">Admin</button>
+        </nav>
+    </header>
+
+    <!-- VISTA 1: FICHAR -->
+    <section id="vista-fichar" class="card">
+        <h2 style="margin-top:0; font-size: 1.2rem;">Registro de Jornada</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Tu espacio digital para reportar tu entrada y salida laboral.</p>
+        
+        <label>Identificador (ID o NFC):</label>
+        <div class="input-group">
+            <input type="text" id="input-nfc-id" placeholder="Ej. TOÑO o EMP-001" autofocus>
+            
+            <label for="input-camara-qr" class="btn-scan" title="Escanear Código QR">
+                <svg viewBox="0 0 24 24">
+                    <path d="M2,4H5V2H2V4M22,4V2H19V4H22M2,20H5V22H2V20M22,20V22H19V20H22M4,9H6V15H4V9M18,9H20V15H18V9M8,6H10V18H8V6M12,6H16V9H12V6M14,11H16V18H14V11M12,14H13V18H12V14Z"/>
+                </svg>
+            </label>
+            <input type="file" id="input-camara-qr" accept="image/*" capture="environment" class="oculto" onchange="procesarFotoQR(this)">
+        </div>
+        
+        <div class="btns">
+            <button class="btn-primary" onclick="fichar('entrada')">Entrada</button>
+            <button class="btn-secondary" onclick="fichar('salida')">Salida</button>
+        </div>
+        
+        <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="btn-info" onclick="activarNfcReal()" style="font-size: 0.8rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Lector NFC</button>
+            <button class="btn-info" onclick="simularLecturaNFC()" style="font-size: 0.8rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Simular Tarjeta</button>
+        </div>
+    </section>
+
+    <!-- VISTA 2: BITÁCORA DE TAREAS -->
+    <section id="vista-bitacora" class="card card-wide oculto">
+        <h2 style="margin-top:0; font-size: 1.25rem;">Bitácora de Tareas y Actividades</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Registra tus actividades diarias. Si realizaste una tarea asignada por Admin, selecciónala abajo para completarla.</p>
+        
+        <div style="background: var(--bg-input); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label>ID de Colaborador / Admin:</label>
+                    <input type="text" id="bitacora-id-emp" placeholder="Ej. TOÑO o EMP-001">
+                </div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="margin-bottom:0;">Zona / Área:</label>
+                        <button type="button" class="btn-info-circulo" title="Ver Croquis de Zonas" onclick="abrirModalCroquis()">i</button>
+                    </div>
+                    <select id="bitacora-proyecto">
+                        <option value="Mesa 1">Mesa 1</option>
+                        <option value="Mesa 2">Mesa 2</option>
+                        <option value="Mesa 3">Mesa 3</option>
+                        <option value="Todas las mesas">Todas las mesas</option>
+                        <option value="Pasillo 1">Pasillo 1</option>
+                        <option value="Pasillo 2">Pasillo 2</option>
+                        <option value="Pasillo comidas">Pasillo comidas</option>
+                        <option value="Todos los pasillos">Todos los pasillos</option>
+                        <option value="Repisas">Repisas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="color: var(--primary);">Vincular con Tarea Semanal (Opcional):</label>
+                <select id="bitacora-vincular-tarea" onchange="autoCompletarTareaSeleccionada(this)">
+                    <option value="">-- Ninguna / Actividad libre --</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label>Título de la Tarea / Actividad:</label>
+                <input type="text" id="bitacora-titulo" placeholder="Ej. Limpieza de anaqueles">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label>Descripción / Detalles:</label>
+                <textarea id="bitacora-desc" rows="3" placeholder="Detalla lo realizado..."></textarea>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Estado:</label>
+                <select id="bitacora-estado">
+                    <option value="Completado">Completado</option>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Pendiente / Bloqueado">Pendiente / Bloqueado</option>
+                </select>
+            </div>
+            <button class="btn-registrar-elegante" onclick="guardarTareaBitacora()">Registrar Tarea en Bitácora</button>
+            <div id="mensaje-bitacora" class="alerta oculto"></div>
+        </div>
+
+        <h3 style="font-size: 1rem; margin-top: 20px;">Actividades Registradas Recientemente</h3>
+        <div class="table-responsive">
+            <table id="tabla-bitacora-recientes">
+                <thead>
+                    <tr>
+                        <th>Fecha y Hora</th>
+                        <th>Colaborador</th>
+                        <th>Zona / Área</th>
+                        <th>Actividad</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- VISTA 3: TABLERO DE TAREAS SEMANALES -->
+    <section id="vista-tareas" class="card card-wide oculto">
+        <h2 style="margin-top:0; font-size: 1.25rem;">Tablero Semanal de Tareas Asignadas</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">Consulta las actividades semanales programadas por la administración.</p>
+        
+        <div class="contenedor-prioridades">
+            <div class="columna-prioridad alta">
+                <h3 class="titulo-prioridad" style="color: var(--danger);">🔴 Prioridad Alta</h3>
+                <div id="lista-tareas-alta"></div>
+            </div>
+
+            <div class="columna-prioridad media">
+                <h3 class="titulo-prioridad" style="color: var(--warning);">🟡 Prioridad Media</h3>
+                <div id="lista-tareas-media"></div>
+            </div>
+
+            <div class="columna-prioridad baja">
+                <h3 class="titulo-prioridad" style="color: var(--success);">🟢 Prioridad Baja</h3>
+                <div id="lista-tareas-baja"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VISTA 4: ADMINISTRACIÓN -->
+    <section id="vista-admin" class="card card-wide oculto">
+        <!-- INICIO DE SESIÓN -->
+        <div id="admin-login-box">
+            <h2 style="margin-top:0;">Autenticación Requerida</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Inicia sesión con tus credenciales de administrador.</p>
+
+            <label>Correo Electrónico:</label>
+            <input type="email" id="admin-email" placeholder="admin@empresa.com" style="margin-bottom: 12px;">
+            <label>Contraseña:</label>
+            <input type="password" id="admin-pass" placeholder="••••••••••••" style="margin-bottom: 15px;">
+            <button class="btn-info" style="width:100%; margin-bottom: 12px;" onclick="verificarAdmin()">Acceder al Sistema</button>
+            <div id="mensaje-login" class="alerta oculto"></div>
+        </div>
+
+        <!-- PANEL DE CONTROL ADMIN (INTERNO) -->
+        <div id="admin-panel" class="oculto">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                    <h2 style="margin: 0; font-size: 1.25rem;">Panel de Control Administrativo</h2>
+                    <small style="color: var(--primary);" id="label-admin-actual"></small>
+                </div>
+                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="cerrarSesionAdmin()">Cerrar Sesión</button>
+            </div>
+            
+            <hr style="border-color: var(--border-color); margin-bottom: 20px;">
+
+            <!-- BOTONES DE ACCIÓN RÁPIDA PARA MODALES -->
+            <div class="acciones-rapidas-grid">
+                <button class="btn-accion-emergente" onclick="abrirModalAltaAdmin()">
+                    👑 Alta de Administrador
+                </button>
+                <button class="btn-accion-emergente" onclick="abrirModalAltaEmpleado()">
+                    👤 Alta de Empleado
+                </button>
+                <button class="btn-accion-emergente" onclick="abrirModalAsignarTarea()">
+                    📌 Asignar Tarea
+                </button>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-top: 25px;">👑 Cuentas Administrativas Registradas</h3>
+            <div class="table-responsive">
+                <table id="tabla-admins">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Puesto</th>
+                            <th>Correo / Acceso</th>
+                            <th>ID / NFC Fichar</th>
+                            <th>Jerarquía</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-top: 30px;">📊 Estadísticas de Rendimiento</h3>
+            <div class="table-responsive">
+                <table id="tabla-estadisticas">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Horas (Semana)</th>
+                            <th>Días (Año)</th>
+                            <th>Horas (Año)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-top: 30px;">📋 Bitácora Global de Tareas</h3>
+            <div class="table-responsive">
+                <table id="tabla-admin-bitacora">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Colaborador</th>
+                            <th>Zona / Área</th>
+                            <th>Tarea</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-top: 30px;">Historial Global de Asistencias</h3>
+            <div class="table-responsive">
+                <table id="tabla-historial">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Tiempo Laborado</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-top: 30px;">Directorio de Personal General</h3>
+            <div class="table-responsive">
+                <table id="tabla-empleados">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>ID</th>
+                            <th>Puesto</th>
+                            <th>NFC / Código</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- MODALES -->
+    <div id="modal-alta-admin" class="modal oculto">
+        <div class="modal-content" style="text-align: left;">
+            <h3 style="color: var(--primary); margin-top:0;">👑 Registrar Nuevo Administrador</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Genera accesos administrativos y su credencial para fichar.</p>
+
+            <div style="margin-bottom: 10px;">
+                <label>Nombre Completo:</label>
+                <input type="text" id="admin-alta-nombre" placeholder="Ej. Antonio Ramírez">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Puesto o Cargo:</label>
+                <input type="text" id="admin-alta-puesto" placeholder="Ej. Gerente de Tienda">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Correo Electrónico (Login Admin):</label>
+                <input type="email" id="admin-alta-correo" placeholder="correo@empresa.com">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Contraseña Acceso Admin:</label>
+                <input type="password" id="admin-alta-pass" placeholder="••••••••••••">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div>
+                    <label>ID para Fichar:</label>
+                    <input type="text" id="admin-alta-id" placeholder="Ej. ADM-002">
+                </div>
+                <div>
+                    <label>NFC / QR:</label>
+                    <input type="text" id="admin-alta-nfc" placeholder="Ej. NFC-ADM-02">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="flex: 1;" onclick="guardarNuevoAdminDesdePanel()">Guardar Administrador</button>
+                <button class="btn-secondary" style="flex: 1;" onclick="cerrarModalAltaAdmin()">Cancelar</button>
+            </div>
+            <div id="mensaje-alta-admin" class="alerta oculto"></div>
+        </div>
+    </div>
+
+    <div id="modal-alta-empleado" class="modal oculto">
+        <div class="modal-content" style="text-align: left;">
+            <h3 style="color: var(--primary); margin-top:0;">👤 Alta de Empleado Operativo</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Registra personal operativo estándar (sin acceso a panel admin).</p>
+
+            <div style="margin-bottom: 10px;">
+                <label>Nombre Completo:</label>
+                <input type="text" id="nuevo-nombre" placeholder="Ej. Salma Yamireth">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>ID de Empleado:</label>
+                <input type="text" id="nuevo-id" placeholder="Ej. EMP-001">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Puesto o Área:</label>
+                <input type="text" id="nuevo-puesto" placeholder="Ej. Producción">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Código NFC / QR:</label>
+                <input type="text" id="nuevo-nfc" placeholder="Ej. NFC-001">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="flex: 1;" onclick="guardarEmpleado()">Guardar Empleado</button>
+                <button class="btn-secondary" style="flex: 1;" onclick="cerrarModalAltaEmpleado()">Cancelar</button>
+            </div>
+            <div id="mensaje-admin" class="alerta oculto"></div>
+        </div>
+    </div>
+
+    <div id="modal-asignar-tarea" class="modal oculto">
+        <div class="modal-content" style="text-align: left;">
+            <h3 style="color: var(--primary); margin-top:0;">📌 Asignar Nueva Tarea Semanal</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Publica asignaciones visibles en el Tablero Semanal.</p>
+
+            <div style="margin-bottom: 10px;">
+                <label>Título de la Tarea:</label>
+                <input type="text" id="admin-tarea-titulo" placeholder="Ej. Reorganizar inventario general">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Prioridad:</label>
+                <select id="admin-tarea-prioridad">
+                    <option value="Alta">🔴 Alta</option>
+                    <option value="Media">🟡 Media</option>
+                    <option value="Baja">🟢 Baja</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Zona / Área Sugerida:</label>
+                <select id="admin-tarea-zona">
+                    <option value="Mesa 1">Mesa 1</option>
+                    <option value="Mesa 2">Mesa 2</option>
+                    <option value="Mesa 3">Mesa 3</option>
+                    <option value="Todas las mesas">Todas las mesas</option>
+                    <option value="Pasillo 1">Pasillo 1</option>
+                    <option value="Pasillo 2">Pasillo 2</option>
+                    <option value="Pasillo comidas">Pasillo comidas</option>
+                    <option value="Todos los pasillos">Todos los pasillos</option>
+                    <option value="Repisas">Repisas</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Descripción / Indicaciones:</label>
+                <textarea id="admin-tarea-desc" rows="3" placeholder="Detalles de la asignación..."></textarea>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="flex: 1;" onclick="guardarTareaSemanalAdmin()">Publicar Tarea</button>
+                <button class="btn-secondary" style="flex: 1;" onclick="cerrarModalAsignarTarea()">Cancelar</button>
+            </div>
+            <div id="mensaje-admin-tarea" class="alerta oculto"></div>
+        </div>
+    </div>
+
+    <div id="modal-resultado" class="modal oculto">
+        <div class="modal-content">
+            <h3 id="modal-titulo">¡Registro Exitoso!</h3>
+            <div class="modal-info" id="modal-texto-info" style="text-align:left; background:var(--bg-input); padding:15px; border-radius:8px; margin:15px 0;"></div>
+            <button class="btn-info" style="width: 100%;" onclick="cerrarModalResultado()">Aceptar</button>
+        </div>
+    </div>
+
+    <div id="modal-croquis" class="modal oculto">
+        <div class="modal-content">
+            <h3 style="color: var(--primary);">Croquis de Zonas del Local</h3>
+            <img src="img/mapa.png" alt="Croquis del Local" style="width:100%; border-radius:8px; margin-bottom:15px;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'200\'><rect width=\'100%\' height=\'100%\' fill=\'%231f2937\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%239ca3af\'>Croquis Corazón de Jesús (CDJ)</text></svg>';">
+            <button class="btn-info" style="width: 100%;" onclick="cerrarModalCroquis()">Cerrar Croquis</button>
+        </div>
+    </div>
+
+    <div id="modal-editar" class="modal oculto">
+        <div class="modal-content" style="max-width: 500px; text-align: left;">
+            <h3 style="color: var(--primary); margin-top: 0;" id="modal-editar-titulo">Editar Registro</h3>
+            <input type="hidden" id="edit-tipo" value="">
+            <input type="hidden" id="edit-index" value="">
+
+            <div style="margin-bottom: 12px;">
+                <label>Nombre:</label>
+                <input type="text" id="edit-nombre">
+            </div>
+            <div style="margin-bottom: 12px;" id="div-edit-puesto">
+                <label>Puesto:</label>
+                <input type="text" id="edit-puesto">
+            </div>
+            <div style="margin-bottom: 12px;" id="div-edit-correo">
+                <label>Correo Electrónico (Login):</label>
+                <input type="email" id="edit-correo">
+            </div>
+            <div style="margin-bottom: 12px;" id="div-edit-pass">
+                <label>Contraseña:</label>
+                <input type="text" id="edit-pass">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label id="label-edit-id">ID para Fichar:</label>
+                <input type="text" id="edit-id-fichar">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label id="label-edit-nfc">Código NFC / QR:</label>
+                <input type="text" id="edit-nfc">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="flex: 1;" onclick="guardarEdicionModal()">Guardar Cambios</button>
+                <button class="btn-secondary" style="flex: 1;" onclick="cerrarModalEditar()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* SCRIPT DE CAMBIO DE MODO (NOCTURNO / NORMAL) */
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const bodyElement = document.body;
+
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme === 'light') {
+            bodyElement.classList.add('light-mode');
+            themeToggleBtn.textContent = '🌙'; 
+        } else {
+            themeToggleBtn.textContent = '☀️'; 
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            bodyElement.classList.toggle('light-mode');
+            
+            if (bodyElement.classList.contains('light-mode')) {
+                themeToggleBtn.textContent = '🌙';
+                localStorage.setItem('theme', 'light');
+            } else {
+                themeToggleBtn.textContent = '☀️';
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        /* LÓGICA PRINCIPAL DE LA APLICACIÓN */
+        const EMPRESA_UNICA = { id: "CDJ", nombre: "Corazón De Jesús" };
+
+        let empleados = JSON.parse(localStorage.getItem('control_empleados')) || [
+            { id: "TOÑO", nombre: "Administrador Principal", puesto: "Super Administrador", nfc: "TOÑO", empresaId: "CDJ" },
+            { id: "EMP-001", nombre: "Salma Yamireth", puesto: "General", nfc: "NFC-SALMA-01", empresaId: "CDJ" }
+        ];
+
+        let cuentasAdmin = JSON.parse(localStorage.getItem('control_cuentas_admin')) || [
+            { nombre: "Administrador Principal", puesto: "Super Administrador", correo: "admin@empresa.com", pass: "admin123", idFichar: "TOÑO", nfcFichar: "TOÑO", jerarquia: "Principal" }
+        ];
+
+        (function sincronizarAdminPrincipal() {
+            let adminPrin = cuentasAdmin.find(a => a.jerarquia === "Principal");
+            if (adminPrin) {
+                adminPrin.idFichar = "TOÑO";
+                adminPrin.nfcFichar = "TOÑO";
+                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+            }
+            let empPrin = empleados.find(e => e.puesto.includes("Super Administrador") || e.id === "ADM-001");
+            if (empPrin) {
+                empPrin.id = "TOÑO";
+                empPrin.nfc = "TOÑO";
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
+            }
+        })();
+
+        let adminSesionActiva = null;
+        let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
+        let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
+        let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
+
+        function actualizarReloj() {
+            const ahora = new Date();
+            const horaCDMX = new Intl.DateTimeFormat('es-MX', {
+                timeZone: 'America/Mexico_City',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            }).format(ahora);
+            document.getElementById('reloj').textContent = horaCDMX;
+        }
+        setInterval(actualizarReloj, 1000);
+        actualizarReloj();
+
+        function mostrarModulosJornada() {
+            document.getElementById('btn-tab-bitacora').classList.remove('oculto');
+            document.getElementById('btn-tab-tareas').classList.remove('oculto');
+        }
+
+        function ocultarModulosJornada() {
+            document.getElementById('btn-tab-bitacora').classList.add('oculto');
+            document.getElementById('btn-tab-tareas').classList.add('oculto');
+        }
+
+        function cambiarVista(vista) {
+            document.getElementById('vista-fichar').classList.add('oculto');
+            document.getElementById('vista-bitacora').classList.add('oculto');
+            document.getElementById('vista-tareas').classList.add('oculto');
+            document.getElementById('vista-admin').classList.add('oculto');
+            
+            document.getElementById('btn-tab-fichar').classList.remove('active');
+            document.getElementById('btn-tab-bitacora').classList.remove('active');
+            document.getElementById('btn-tab-tareas').classList.remove('active');
+            document.getElementById('btn-tab-admin').classList.remove('active');
+
+            if (vista === 'fichar') {
+                document.getElementById('vista-fichar').classList.remove('oculto');
+                document.getElementById('btn-tab-fichar').classList.add('active');
+            } else if (vista === 'bitacora') {
+                document.getElementById('vista-bitacora').classList.remove('oculto');
+                document.getElementById('btn-tab-bitacora').classList.add('active');
+                cargarOpcionesTareasEnBitacora();
+                renderizarBitacoraRecientes();
+            } else if (vista === 'tareas') {
+                document.getElementById('vista-tareas').classList.remove('oculto');
+                document.getElementById('btn-tab-tareas').classList.add('active');
+                renderizarTableroTareasSemanales();
+            } else if (vista === 'admin') {
+                document.getElementById('vista-admin').classList.remove('oculto');
+                document.getElementById('btn-tab-admin').classList.add('active');
+                renderizarTodoAdmin();
+            }
+        }
+
+        function abrirModalAltaAdmin() { document.getElementById('modal-alta-admin').classList.remove('oculto'); }
+        function cerrarModalAltaAdmin() { document.getElementById('modal-alta-admin').classList.add('oculto'); }
+
+        function abrirModalAltaEmpleado() { document.getElementById('modal-alta-empleado').classList.remove('oculto'); }
+        function cerrarModalAltaEmpleado() { document.getElementById('modal-alta-empleado').classList.add('oculto'); }
+
+        function abrirModalAsignarTarea() { document.getElementById('modal-asignar-tarea').classList.remove('oculto'); }
+        function cerrarModalAsignarTarea() { document.getElementById('modal-asignar-tarea').classList.add('oculto'); }
+
+        function abrirModalCroquis() { document.getElementById('modal-croquis').classList.remove('oculto'); }
+        function cerrarModalCroquis() { document.getElementById('modal-croquis').classList.add('oculto'); }
+
+        function guardarNuevoAdminDesdePanel() {
+            const nombre = document.getElementById('admin-alta-nombre').value.trim();
+            const puesto = document.getElementById('admin-alta-puesto').value.trim();
+            const correo = document.getElementById('admin-alta-correo').value.trim().toLowerCase();
+            const pass = document.getElementById('admin-alta-pass').value.trim();
+            const idFichar = document.getElementById('admin-alta-id').value.trim().toUpperCase();
+            const nfcFichar = document.getElementById('admin-alta-nfc').value.trim().toUpperCase();
+            const msg = document.getElementById('mensaje-alta-admin');
+
+            if (!nombre || !puesto || !correo || !pass || !idFichar || !nfcFichar) {
+                mostrarAlerta(msg, "Todos los campos son obligatorios.", "error");
+                return;
+            }
+
+            if (cuentasAdmin.find(a => a.correo === correo)) {
+                mostrarAlerta(msg, "El correo electrónico ya está registrado.", "error");
+                return;
+            }
+
+            if (empleados.find(e => e.id === idFichar || e.nfc === nfcFichar)) {
+                mostrarAlerta(msg, "El ID o código NFC/QR ya pertenece a otro colaborador.", "error");
+                return;
+            }
+
+            cuentasAdmin.push({ nombre, puesto, correo, pass, idFichar, nfcFichar, jerarquia: "Administrador" });
+            localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+
+            empleados.push({ id: idFichar, nombre: nombre, puesto: `${puesto} (Admin)`, nfc: nfcFichar, empresaId: EMPRESA_UNICA.id });
+            localStorage.setItem('control_empleados', JSON.stringify(empleados));
+
+            mostrarAlerta(msg, "¡Administrador y colaborador registrado exitosamente!", "exito");
+
+            document.getElementById('admin-alta-nombre').value = '';
+            document.getElementById('admin-alta-puesto').value = '';
+            document.getElementById('admin-alta-correo').value = '';
+            document.getElementById('admin-alta-pass').value = '';
+            document.getElementById('admin-alta-id').value = '';
+            document.getElementById('admin-alta-nfc').value = '';
+
+            setTimeout(() => {
+                cerrarModalAltaAdmin();
+                renderizarTodoAdmin();
+            }, 1200);
+        }
+
+        function guardarEmpleado() {
+            const nombre = document.getElementById('nuevo-nombre').value.trim();
+            const id = document.getElementById('nuevo-id').value.trim().toUpperCase();
+            const puesto = document.getElementById('nuevo-puesto').value.trim();
+            const nfc = document.getElementById('nuevo-nfc').value.trim().toUpperCase();
+            const msg = document.getElementById('mensaje-admin');
+
+            if (!nombre || !id || !nfc) {
+                mostrarAlerta(msg, "Complete los campos solicitados.", "error");
+                return;
+            }
+
+            empleados.push({ id, nombre, puesto: puesto || 'General', nfc, empresaId: EMPRESA_UNICA.id });
+            localStorage.setItem('control_empleados', JSON.stringify(empleados));
+            
+            mostrarAlerta(msg, "¡Empleado registrado con éxito!", "exito");
+
+            document.getElementById('nuevo-nombre').value = '';
+            document.getElementById('nuevo-id').value = '';
+            document.getElementById('nuevo-puesto').value = '';
+            document.getElementById('nuevo-nfc').value = '';
+
+            setTimeout(() => {
+                cerrarModalAltaEmpleado();
+                renderizarTodoAdmin();
+            }, 1200);
+        }
+
+        function guardarTareaSemanalAdmin() {
+            const titulo = document.getElementById('admin-tarea-titulo').value.trim();
+            const prioridad = document.getElementById('admin-tarea-prioridad').value;
+            const zona = document.getElementById('admin-tarea-zona').value;
+            const desc = document.getElementById('admin-tarea-desc').value.trim();
+            const msg = document.getElementById('mensaje-admin-tarea');
+
+            if (!titulo) {
+                mostrarAlerta(msg, "Debe colocar un título a la tarea.", "error");
+                return;
+            }
+
+            tareasSemanales.push({ id: Date.now(), titulo, prioridad, zona, desc, empresaId: EMPRESA_UNICA.id });
+            localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+            mostrarAlerta(msg, "¡Tarea asignada con éxito!", "exito");
+
+            document.getElementById('admin-tarea-titulo').value = '';
+            document.getElementById('admin-tarea-desc').value = '';
+
+            setTimeout(() => {
+                cerrarModalAsignarTarea();
+                renderizarTableroTareasSemanales();
+            }, 1200);
+        }
+
+        function verificarAdmin() {
+            const correoInput = document.getElementById('admin-email').value.trim().toLowerCase();
+            const passInput = document.getElementById('admin-pass').value.trim();
+
+            const adminEncontrado = cuentasAdmin.find(a => a.correo === correoInput && a.pass === passInput);
+
+            if (adminEncontrado) {
+                adminSesionActiva = adminEncontrado;
+                document.getElementById('admin-login-box').classList.add('oculto');
+                document.getElementById('admin-panel').classList.remove('oculto');
+                document.getElementById('admin-email').value = '';
+                document.getElementById('admin-pass').value = '';
+                document.getElementById('label-admin-actual').textContent = `Sesión: ${adminSesionActiva.nombre} (${adminSesionActiva.jerarquia})`;
+                renderizarTodoAdmin();
+            } else {
+                mostrarAlerta(document.getElementById('mensaje-login'), "Correo o contraseña incorrectos.", "error");
+            }
+        }
+
+        function cerrarSesionAdmin() {
+            adminSesionActiva = null;
+            document.getElementById('admin-panel').classList.add('oculto');
+            document.getElementById('admin-login-box').classList.remove('oculto');
+        }
+
+        function renderizarTableroTareasSemanales() {
+            const colAlta = document.getElementById('lista-tareas-alta');
+            const colMedia = document.getElementById('lista-tareas-media');
+            const colBaja = document.getElementById('lista-tareas-baja');
+
+            colAlta.innerHTML = ''; colMedia.innerHTML = ''; colBaja.innerHTML = '';
+
+            if (tareasSemanales.filter(t => t.prioridad === 'Alta').length === 0) colAlta.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted);">Sin tareas pendientes.</p>`;
+            if (tareasSemanales.filter(t => t.prioridad === 'Media').length === 0) colMedia.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted);">Sin tareas pendientes.</p>`;
+            if (tareasSemanales.filter(t => t.prioridad === 'Baja').length === 0) colBaja.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted);">Sin tareas pendientes.</p>`;
+
+            tareasSemanales.forEach(t => {
+                const cardHtml = `
+                    <div class="tarjeta-tarea-semanal">
+                        <strong>${t.titulo}</strong>
+                        <small>📍 Zona: ${t.zona}</small>
+                        ${t.desc ? `<p style="margin:4px 0 0 0; font-size:0.8rem; color:var(--text-muted);">${t.desc}</p>` : ''}
+                    </div>
+                `;
+                if (t.prioridad === 'Alta') colAlta.innerHTML += cardHtml;
+                if (t.prioridad === 'Media') colMedia.innerHTML += cardHtml;
+                if (t.prioridad === 'Baja') colBaja.innerHTML += cardHtml;
+            });
+        }
+
+        function cargarOpcionesTareasEnBitacora() {
+            const select = document.getElementById('bitacora-vincular-tarea');
+            select.innerHTML = '<option value="">-- Ninguna / Actividad libre --</option>';
+
+            tareasSemanales.forEach(t => {
+                const icon = t.prioridad === 'Alta' ? '🔴' : t.prioridad === 'Media' ? '🟡' : '🟢';
+                const option = document.createElement('option');
+                option.value = t.id;
+                option.textContent = `${icon} [${t.prioridad}] ${t.titulo} (${t.zona})`;
+                select.appendChild(option);
+            });
+        }
+
+        function autoCompletarTareaSeleccionada(select) {
+            const tareaId = select.value;
+            if (!tareaId) return;
+
+            const tareaEncontrada = tareasSemanales.find(t => t.id == tareaId);
+            if (tareaEncontrada) {
+                document.getElementById('bitacora-titulo').value = tareaEncontrada.titulo;
+                document.getElementById('bitacora-desc').value = tareaEncontrada.desc || '';
+                document.getElementById('bitacora-proyecto').value = tareaEncontrada.zona;
+            }
+        }
+
+        function guardarTareaBitacora() {
+            const idEmp = document.getElementById('bitacora-id-emp').value.trim().toUpperCase();
+            const proyecto = document.getElementById('bitacora-proyecto').value;
+            const titulo = document.getElementById('bitacora-titulo').value.trim();
+            const desc = document.getElementById('bitacora-desc').value.trim();
+            const estado = document.getElementById('bitacora-estado').value;
+            const tareaVinculadaId = document.getElementById('bitacora-vincular-tarea').value;
+            const msg = document.getElementById('mensaje-bitacora');
+
+            if (!idEmp || !titulo) {
+                mostrarAlerta(msg, "Debe ingresar su ID de colaborador y el título de la tarea.", "error");
+                return;
+            }
+
+            const empleado = empleados.find(e => e.id.toUpperCase() === idEmp || e.nfc.toUpperCase() === idEmp);
+            if (!empleado) {
+                mostrarAlerta(msg, "ID de colaborador no encontrado.", "error");
+                return;
+            }
+
+            const ahora = new Date();
+            const fechaHora = new Intl.DateTimeFormat('es-MX', { 
+                timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'medium' 
+            }).format(ahora);
+
+            bitacoraTareas.unshift({
+                fechaHora, nombreEmpleado: empleado.nombre, idEmpleado: empleado.id,
+                proyecto, titulo, desc, estado, empresaId: EMPRESA_UNICA.id
+            });
+
+            localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+
+            let mensajeExtra = "";
+            if (tareaVinculadaId && estado === "Completado") {
+                tareasSemanales = tareasSemanales.filter(t => t.id != tareaVinculadaId);
+                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+                mensajeExtra = " ¡Se liberó la tarea del tablero semanal!";
+            }
+
+            mostrarAlerta(msg, "¡Tarea registrada con éxito!" + mensajeExtra, "exito");
+            document.getElementById('bitacora-titulo').value = '';
+            document.getElementById('bitacora-desc').value = '';
+            document.getElementById('bitacora-vincular-tarea').value = '';
+            
+            cargarOpcionesTareasEnBitacora();
+            renderizarBitacoraRecientes();
+        }
+
+        async function activarNfcReal() {
+            if ('NDEFReader' in window) {
+                try {
+                    const ndef = new NDEFReader();
+                    await ndef.scan();
+                    alert("Lector NFC activado. Acerque su tarjeta...");
+                    ndef.onreading = event => {
+                        const decoder = new TextDecoder();
+                        for (const record of event.message.records) {
+                            document.getElementById('input-nfc-id').value = decoder.decode(record.data).trim().toUpperCase();
+                            fichar('entrada');
+                        }
+                    };
+                } catch (error) { alert("Error al iniciar NFC: " + error); }
+            } else { alert("Navegador sin soporte Web NFC directo."); }
+        }
+
+        function procesarFotoQR(input) {
+            if (input.files && input.files[0] && empleados.length > 0) {
+                document.getElementById('input-nfc-id').value = empleados[0].nfc;
+                input.value = '';
+                alert("¡Código QR procesado! Colaborador: " + empleados[0].nombre);
+            }
+        }
+
+        function fichar(tipo) {
+            const inputVal = document.getElementById('input-nfc-id').value.trim().toUpperCase();
+            if (!inputVal) { alert("Por favor ingrese su ID o NFC."); return; }
+
+            const empleado = empleados.find(e => e.id.toUpperCase() === inputVal || e.nfc.toUpperCase() === inputVal);
+            if (!empleado) {
+                mostrarPopupResultado("Acceso Denegado", `<strong style="color:var(--danger);">Identificador no registrado.</strong>`, false);
+                return;
+            }
+
+            const ahora = new Date();
+            const fechaActual = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short' }).format(ahora);
+            const horaActual = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(ahora);
+
+            const turnoCompletadoHoy = registros.find(r => r.idEmpleado === empleado.id && r.fechaEntrada === fechaActual && r.horaSalida !== null);
+            if (turnoCompletadoHoy) {
+                mostrarPopupResultado("Jornada Concluida", `<strong>${empleado.nombre}</strong>, ya concluiste tu jornada hoy.`, false);
+                document.getElementById('input-nfc-id').value = '';
+                return;
+            }
+
+            if (tipo === 'entrada') {
+                const abierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
+                if (abierto) {
+                    mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa.`, false);
+                    mostrarModulosJornada();
+                    return;
+                }
+
+                const [hActual, mActual, sActual] = horaActual.split(':').map(Number);
+                const esTarde = (hActual * 3600 + mActual * 60 + sActual) > ((9 * 3600) + (10 * 60));
+
+                registros.push({
+                    idReg: Date.now(), idEmpleado: empleado.id, nombre: empleado.nombre, fechaEntrada: fechaActual,
+                    horaEntrada: horaActual, anio: ahora.getFullYear(), timestampEntrada: ahora.getTime(), esTarde,
+                    fechaSalida: null, horaSalida: null, segundosLaborados: 0, tiempoLaborado: "-", empresaId: EMPRESA_UNICA.id
+                });
+
+                document.getElementById('bitacora-id-emp').value = empleado.id;
+
+                mostrarModulosJornada();
+                mostrarPopupResultado("¡Entrada Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Hora: <strong>${horaActual}</strong><br><br><small style="color:var(--primary);">Pestañas de Bitácora y Tareas habilitadas.</small>`, true);
+            } else {
+                const abierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
+                if (!abierto) {
+                    mostrarPopupResultado("Aviso", `No hay entrada registrada hoy para <strong>${empleado.nombre}</strong>.`, false);
+                    return;
+                }
+
+                abierto.fechaSalida = fechaActual;
+                abierto.horaSalida = horaActual;
+
+                const [h1, m1, s1] = abierto.horaEntrada.split(':').map(Number);
+                const [h2, m2, s2] = horaActual.split(':').map(Number);
+                let diff = (h2 * 3600 + m2 * 60 + s2) - (h1 * 3600 + m1 * 60 + s1);
+                if (diff < 0) diff += 24 * 3600;
+
+                abierto.segundosLaborados = diff;
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
+                const s = diff % 60;
+                abierto.tiempoLaborado = `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
+
+                ocultarModulosJornada();
+                cambiarVista('fichar');
+                document.getElementById('bitacora-id-emp').value = '';
+
+                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo: <strong>${abierto.tiempoLaborado}</strong><br><br><small style="color:var(--text-muted);">Módulos de trabajo bloqueados.</small>`, true);
+            }
+
+            localStorage.setItem('control_registros', JSON.stringify(registros));
+            document.getElementById('input-nfc-id').value = '';
+        }
+
+        function renderizarBitacoraRecientes() {
+            const tbody = document.getElementById('tabla-bitacora-recientes').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            if (bitacoraTareas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Sin tareas registradas.</td></tr>`;
+                return;
+            }
+            bitacoraTareas.slice(0, 15).forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><small style="color:var(--text-muted);">${t.fechaHora}</small></td>
+                    <td><strong>${t.nombreEmpleado}</strong></td>
+                    <td><span style="color:var(--primary);">${t.proyecto}</span></td>
+                    <td><strong>${t.titulo}</strong><br><small style="color:var(--text-muted);">${t.desc}</small></td>
+                    <td><strong>${t.estado}</strong></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function simularLecturaNFC() {
+            if (empleados.length > 0) {
+                document.getElementById('input-nfc-id').value = "TOÑO";
+                fichar('entrada');
+            }
+        }
+
+        function mostrarPopupResultado(titulo, htmlInfo, esExito) {
+            document.getElementById('modal-titulo').textContent = titulo;
+            document.getElementById('modal-titulo').style.color = esExito ? 'var(--success)' : 'var(--danger)';
+            document.getElementById('modal-texto-info').innerHTML = htmlInfo;
+            document.getElementById('modal-resultado').classList.remove('oculto');
+        }
+
+        function cerrarModalResultado() {
+            document.getElementById('modal-resultado').classList.add('oculto');
+            document.getElementById('input-nfc-id').focus();
+        }
+
+        function renderizarAdmins() {
+            const tbodyAdmins = document.getElementById('tabla-admins').querySelector('tbody');
+            tbodyAdmins.innerHTML = '';
+
+            const esPrincipal = adminSesionActiva && adminSesionActiva.jerarquia === "Principal";
+
+            cuentasAdmin.forEach((a, index) => {
+                const tr = document.createElement('tr');
+                const puedeEliminar = esPrincipal && a.jerarquia !== 'Principal';
+
+                tr.innerHTML = `
+                    <td><strong>${a.nombre}</strong></td>
+                    <td>${a.puesto}</td>
+                    <td>${a.correo}</td>
+                    <td><small style="color:var(--primary);">${a.idFichar || 'N/A'} / ${a.nfcFichar || 'N/A'}</small></td>
+                    <td><span class="badge-maxima">👑 ${a.jerarquia}</span></td>
+                    <td>
+                        <button class="btn-warning" style="padding:4px 8px; font-size:0.75rem; margin-right:4px;" onclick="abrirModalEditar('admin', ${index})">Editar</button>
+                        ${puedeEliminar ? `<button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarAdmin(${index})">Eliminar</button>` : ''}
+                    </td>
+                `;
+                tbodyAdmins.appendChild(tr);
+            });
+        }
+
+        function abrirModalEditar(tipo, index) {
+            document.getElementById('edit-tipo').value = tipo;
+            document.getElementById('edit-index').value = index;
+
+            if (tipo === 'admin') {
+                const adm = cuentasAdmin[index];
+                document.getElementById('modal-editar-titulo').textContent = "Editar Administrador";
+                document.getElementById('edit-nombre').value = adm.nombre;
+                document.getElementById('edit-puesto').value = adm.puesto;
+                document.getElementById('edit-correo').value = adm.correo;
+                document.getElementById('edit-pass').value = adm.pass;
+                document.getElementById('edit-id-fichar').value = adm.idFichar || '';
+                document.getElementById('edit-nfc').value = adm.nfcFichar || '';
+                
+                document.getElementById('div-edit-puesto').style.display = 'block';
+                document.getElementById('div-edit-correo').style.display = 'block';
+                document.getElementById('div-edit-pass').style.display = 'block';
+                document.getElementById('label-edit-id').textContent = "ID para Fichar:";
+                document.getElementById('label-edit-nfc').textContent = "Código NFC / QR para Fichar:";
+            } else {
+                const emp = empleados[index];
+                document.getElementById('modal-editar-titulo').textContent = "Editar Colaborador";
+                document.getElementById('edit-nombre').value = emp.nombre;
+                document.getElementById('edit-puesto').value = emp.puesto;
+                document.getElementById('edit-id-fichar').value = emp.id;
+                document.getElementById('edit-nfc').value = emp.nfc;
+
+                document.getElementById('div-edit-puesto').style.display = 'block';
+                document.getElementById('div-edit-correo').style.display = 'none';
+                document.getElementById('div-edit-pass').style.display = 'none';
+                document.getElementById('label-edit-id').textContent = "ID de Empleado:";
+                document.getElementById('label-edit-nfc').textContent = "Código NFC / QR:";
+            }
+
+            document.getElementById('modal-editar').classList.remove('oculto');
+        }
+
+        function cerrarModalEditar() {
+            document.getElementById('modal-editar').classList.add('oculto');
+        }
+
+        function guardarEdicionModal() {
+            const tipo = document.getElementById('edit-tipo').value;
+            const index = parseInt(document.getElementById('edit-index').value);
+
+            const nuevoNombre = document.getElementById('edit-nombre').value.trim();
+            const nuevoPuesto = document.getElementById('edit-puesto').value.trim();
+            const nuevoIdFichar = document.getElementById('edit-id-fichar').value.trim().toUpperCase();
+            const nuevoNfc = document.getElementById('edit-nfc').value.trim().toUpperCase();
+
+            if (!nuevoNombre || !nuevoIdFichar || !nuevoNfc) {
+                alert("Los campos principales no pueden estar vacíos.");
+                return;
+            }
+
+            if (tipo === 'admin') {
+                const nuevoCorreo = document.getElementById('edit-correo').value.trim().toLowerCase();
+                const nuevaPass = document.getElementById('edit-pass').value.trim();
+                const adminActual = cuentasAdmin[index];
+
+                const antiguoIdFichar = adminActual.idFichar;
+
+                adminActual.nombre = nuevoNombre;
+                adminActual.puesto = nuevoPuesto;
+                adminActual.correo = nuevoCorreo;
+                adminActual.pass = nuevaPass;
+                adminActual.idFichar = nuevoIdFichar;
+                adminActual.nfcFichar = nuevoNfc;
+
+                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+
+                const empVinculado = empleados.find(e => e.id === antiguoIdFichar || e.nfc === adminActual.nfcFichar);
+                if (empVinculado) {
+                    empVinculado.id = nuevoIdFichar;
+                    empVinculado.nombre = nuevoNombre;
+                    empVinculado.puesto = `${nuevoPuesto} (Admin)`;
+                    empVinculado.nfc = nuevoNfc;
+                } else {
+                    empleados.push({ id: nuevoIdFichar, nombre: nuevoNombre, puesto: `${nuevoPuesto} (Admin)`, nfc: nuevoNfc, empresaId: EMPRESA_UNICA.id });
+                }
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
+
+            } else {
+                const empActual = empleados[index];
+                empActual.nombre = nuevoNombre;
+                empActual.puesto = nuevoPuesto;
+                empActual.id = nuevoIdFichar;
+                empActual.nfc = nuevoNfc;
+
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
+            }
+
+            cerrarModalEditar();
+            renderizarTodoAdmin();
+            alert("¡Cambios guardados correctamente!");
+        }
+
+        function eliminarAdmin(index) {
+            if (!adminSesionActiva) {
+                alert("Debes iniciar sesión para realizar esta acción.");
+                return;
+            }
+
+            if (adminSesionActiva.jerarquia !== "Principal") {
+                alert("Acceso denegado: Los administradores secundarios no tienen permisos para eliminar a otros administradores.");
+                return;
+            }
+
+            const adminTarget = cuentasAdmin[index];
+
+            if (adminTarget.jerarquia === "Principal") {
+                alert("No es posible eliminar la cuenta del Administrador Principal.");
+                return;
+            }
+
+            if (confirm(`¿Estás seguro de eliminar al administrador ${adminTarget.nombre}?`)) {
+                cuentasAdmin.splice(index, 1);
+                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+                
+                if (adminTarget.idFichar) {
+                    empleados = empleados.filter(e => e.id !== adminTarget.idFichar);
+                    localStorage.setItem('control_empleados', JSON.stringify(empleados));
+                }
+                renderizarTodoAdmin();
+            }
+        }
+
+        function renderizarTodoAdmin() {
+            renderizarAdmins();
+
+            const tbodyStats = document.getElementById('tabla-estadisticas').querySelector('tbody');
+            tbodyStats.innerHTML = '';
+            empleados.forEach(emp => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td><strong>${emp.nombre}</strong></td><td>0 hrs</td><td>0 días</td><td>0 hrs</td>`;
+                tbodyStats.appendChild(tr);
+            });
+
+            const tbodyBitAdmin = document.getElementById('tabla-admin-bitacora').querySelector('tbody');
+            tbodyBitAdmin.innerHTML = '';
+            if (bitacoraTareas.length === 0) {
+                tbodyBitAdmin.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Sin registros en la bitácora global.</td></tr>`;
+            } else {
+                bitacoraTareas.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><small>${t.fechaHora}</small></td>
+                        <td><strong>${t.nombreEmpleado}</strong></td>
+                        <td>${t.proyecto}</td>
+                        <td>${t.titulo}</td>
+                        <td><strong>${t.estado}</strong></td>
+                    `;
+                    tbodyBitAdmin.appendChild(tr);
+                });
+            }
+
+            const tbodyHistorial = document.getElementById('tabla-historial').querySelector('tbody');
+            tbodyHistorial.innerHTML = '';
+            if (registros.length === 0) {
+                tbodyHistorial.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin registros de asistencia.</td></tr>`;
+            } else {
+                registros.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${r.nombre}</strong></td>
+                        <td>${r.fechaEntrada} - ${r.horaEntrada}</td>
+                        <td>${r.fechaSalida ? r.fechaSalida + ' - ' + r.horaSalida : '<span style="color:var(--success);">En curso</span>'}</td>
+                        <td>${r.tiempoLaborado}</td>
+                    `;
+                    tbodyHistorial.appendChild(tr);
+                });
+            }
+
+            const tbodyEmp = document.getElementById('tabla-empleados').querySelector('tbody');
+            tbodyEmp.innerHTML = '';
+            empleados.forEach((e, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${e.nombre}</td>
+                    <td>${e.id}</td>
+                    <td>${e.puesto}</td>
+                    <td>${e.nfc}</td>
+                    <td>
+                        <button class="btn-warning" style="padding:4px 8px; font-size:0.75rem; margin-right:4px;" onclick="abrirModalEditar('empleado', ${index})">Editar</button>
+                        <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarEmpleado(${index})">Eliminar</button>
+                    </td>
+                `;
+                tbodyEmp.appendChild(tr);
+            });
+        }
+
+        function eliminarEmpleado(index) {
+            if (confirm("¿Eliminar colaborador?")) {
+                empleados.splice(index, 1);
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
+                renderizarTodoAdmin();
+            }
+        }
+
+        function mostrarAlerta(elemento, texto, tipo) {
+            elemento.textContent = texto;
+            elemento.className = `alerta ${tipo}`;
+            elemento.classList.remove('oculto');
+            setTimeout(() => { elemento.classList.add('oculto'); }, 4000);
+        }
+    </script>
+</body>
+</html>
