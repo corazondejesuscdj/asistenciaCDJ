@@ -7,52 +7,145 @@
     <meta name="theme-color" content="#0b0f19">
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Portal Colaboradores | Corazón De Jesús (CDJ)</title>
-    <!-- Favicon del Portal -->
+
     <link rel="icon" type="image/png" href="LOGOCDJ.png">
-    <!-- Librería ligera para el escaneo de códigos QR en tiempo real -->
+
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <!-- CONFIGURACIÓN DE FIREBASE E INTEGRACIÓN FIRESTORE -->
+
+    <!-- =========================================================
+         FIREBASE
+         ========================================================= -->
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-      import { 
-        getFirestore, collection, getDocs, addDoc, setDoc, doc, deleteDoc, updateDoc, query, orderBy 
-      } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyA7edmm2X6rQQxB4YYhFFBEbV4rH2Zpc2E",
-        authDomain: "corazon-de-jesus-b1987.firebaseapp.com",
-        projectId: "corazon-de-jesus-b1987",
-        storageBucket: "corazon-de-jesus-b1987.firebasestorage.app",
-        messagingSenderId: "765026412541",
-        appId: "1:765026412541:web:bdf6a3b6a65479a5971b94"
-      };
+        import { initializeApp } 
+            from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
+        import {
+            getAuth,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            updatePassword
+        } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
-      // Exponer funciones de Firebase globalmente para que el portal las consuma
-      window.db = db;
-      window.firebaseEnabled = true;
-      window.fsModule = { collection, getDocs, addDoc, setDoc, doc, deleteDoc, updateDoc, query, orderBy };
-      
-      // Lanzar evento personalizado cuando Firebase esté listo
-      window.dispatchEvent(new Event('firebase-ready'));
+        import {
+            getFirestore,
+            collection,
+            getDocs,
+            addDoc,
+            setDoc,
+            doc,
+            deleteDoc,
+            updateDoc,
+            query,
+            orderBy,
+            where,
+            getDoc,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+        import {
+            getStorage,
+            ref,
+            uploadBytes,
+            getDownloadURL
+        } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
+
+        /* =========================================================
+           CONFIGURACIÓN DE TU PROYECTO FIREBASE
+           ========================================================= */
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA7edmm2X6rQQxB4YYhFFBEbV4rH2Zpc2E",
+            authDomain: "corazon-de-jesus-b1987.firebaseapp.com",
+            projectId: "corazon-de-jesus-b1987",
+            storageBucket: "corazon-de-jesus-b1987.firebasestorage.app",
+            messagingSenderId: "765026412541",
+            appId: "1:765026412541:web:bdf6a3b6a65479a5971b94"
+        };
+
+        /* =========================================================
+           APP PRINCIPAL
+           ========================================================= */
+
+        const app = initializeApp(firebaseConfig);
+
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const storage = getStorage(app);
+
+        /*
+         * Segunda aplicación Firebase.
+         *
+         * Esto permite crear otro administrador sin cerrar
+         * la sesión del administrador actual.
+         */
+
+        const secondaryApp = initializeApp(firebaseConfig, "secondary");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        window.db = db;
+        window.auth = auth;
+        window.storage = storage;
+        window.secondaryAuth = secondaryAuth;
+
+        window.firebaseEnabled = true;
+
+        window.fsModule = {
+            collection,
+            getDocs,
+            addDoc,
+            setDoc,
+            doc,
+            deleteDoc,
+            updateDoc,
+            query,
+            orderBy,
+            where,
+            getDoc,
+            serverTimestamp
+        };
+
+        window.authModule = {
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            updatePassword
+        };
+
+        window.storageModule = {
+            ref,
+            uploadBytes,
+            getDownloadURL
+        };
+
+        window.dispatchEvent(new Event("firebase-ready"));
+
+        console.log("Firebase conectado correctamente.");
+
     </script>
 
     <style>
+
         :root {
             --bg-main: #0b0f19;
             --bg-card: #111827;
             --bg-input: #1f2937;
             --border-color: #374151;
+
             --primary: #3b82f6;
             --primary-hover: #2563eb;
+
             --success: #10b981;
             --success-hover: #059669;
+
             --danger: #ef4444;
             --warning: #f59e0b;
+
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
         }
@@ -60,6 +153,6615 @@
         body.light-mode {
             --bg-main: #f4f4f9;
             --bg-card: #ffffff;
+            --bg-input: #e5e7eb;
+            --border-color: #d1d5db;
+
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+
+            --text-main: #1f2937;
+            --text-muted: #4b5563;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            min-height: 100vh;
+
+            transition:
+                background-color 0.3s ease,
+                color 0.3s ease;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .theme-toggle-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+
+            background-color: var(--bg-card);
+            color: var(--text-main);
+
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+
+            width: 44px;
+            height: 44px;
+
+            font-size: 20px;
+            cursor: pointer;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            box-shadow: 0 4px 6px rgba(0,0,0,.2);
+
+            transition:
+                transform .2s ease,
+                background-color .3s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .logo-container {
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            display: inline-block;
+
+            padding: 12px;
+
+            border-radius: 16px;
+
+            box-shadow:
+                0 10px 25px -5px rgba(0,0,0,.3);
+
+            margin-bottom: 15px;
+        }
+
+        .logo-empresa {
+            width: 65px;
+            height: 65px;
+
+            object-fit: contain;
+
+            display: block;
+
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+
+            margin: 0 0 10px 0;
+
+            letter-spacing: -.025em;
+        }
+
+        #reloj {
+            font-size: 2.2rem;
+            font-weight: 700;
+
+            color: var(--primary);
+
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            display: inline-block;
+
+            padding: 8px 24px;
+
+            border-radius: 9999px;
+
+            box-shadow:
+                inset 0 2px 4px rgba(0,0,0,.2);
+
+            margin-bottom: 15px;
+
+            letter-spacing: 1px;
+        }
+
+        .verificador-empresa {
+            background: rgba(59,130,246,.15);
+
+            border: 1px solid var(--primary);
+
+            color: var(--primary);
+
+            padding: 8px 16px;
+
+            border-radius: 20px;
+
+            font-size: .85rem;
+
+            font-weight: 600;
+
+            margin-bottom: 20px;
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 8px;
+        }
+
+        .offline-indicator {
+            background: rgba(239,68,68,.15);
+
+            border: 1px solid var(--danger);
+
+            color: var(--danger);
+
+            padding: 4px 10px;
+
+            border-radius: 12px;
+
+            font-size: .75rem;
+
+            font-weight: 600;
+
+            margin-left: 8px;
+
+            display: inline-block;
+        }
+
+        .offline-indicator.online {
+            background: rgba(16,185,129,.15);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        nav {
+            display: flex;
+
+            justify-content: center;
+
+            gap: 8px;
+
+            margin-bottom: 25px;
+
+            background: var(--bg-card);
+
+            padding: 8px;
+
+            border-radius: 14px;
+
+            border: 1px solid var(--border-color);
+
+            width: 100%;
+
+            max-width: 550px;
+
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        nav button {
+            flex: 1;
+
+            padding: 10px 12px;
+
+            border: none;
+
+            border-radius: 10px;
+
+            background: transparent;
+
+            color: var(--text-muted);
+
+            cursor: pointer;
+
+            font-weight: 500;
+
+            font-size: .85rem;
+
+            transition: all .3s ease;
+
+            white-space: nowrap;
+        }
+
+        nav button:hover:not(.active) {
+            color: var(--text-main);
+            background: rgba(128,128,128,.1);
+        }
+
+        nav button.active {
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--primary),
+                    var(--primary-hover)
+                );
+
+            color: white;
+
+            box-shadow:
+                0 4px 14px rgba(59,130,246,.4);
+
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            padding: 30px;
+
+            border-radius: 16px;
+
+            box-shadow:
+                0 20px 25px -5px rgba(0,0,0,.1),
+                0 10px 10px -5px rgba(0,0,0,.05);
+
+            width: 100%;
+
+            max-width: 460px;
+        }
+
+        .card-wide {
+            max-width: 950px;
+        }
+
+        label {
+            display: block;
+
+            font-size: .85rem;
+
+            font-weight: 500;
+
+            color: var(--text-muted);
+
+            margin-bottom: 6px;
+        }
+
+        .input-group {
+            display: flex;
+
+            gap: 10px;
+
+            align-items: center;
+
+            margin-bottom: 20px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+
+            padding: 12px 16px;
+
+            background: var(--bg-input);
+
+            border: 1px solid var(--border-color);
+
+            border-radius: 8px;
+
+            color: var(--text-main);
+
+            font-size: .95rem;
+
+            outline: none;
+
+            font-family: inherit;
+
+            transition:
+                border-color .2s,
+                background-color .3s,
+                color .3s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-scan {
+            background: var(--primary);
+
+            border: none;
+
+            border-radius: 8px;
+
+            color: white;
+
+            padding: 0 16px;
+
+            cursor: pointer;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            height: 46px;
+
+            flex-shrink: 0;
+        }
+
+        .btn-scan:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-scan svg {
+            width: 20px;
+            height: 20px;
+
+            fill: white;
+        }
+
+        .btn-info-circulo {
+            width: 20px;
+            height: 20px;
+
+            background: transparent;
+
+            border: 1.5px solid var(--text-muted);
+
+            border-radius: 50%;
+
+            color: var(--text-muted);
+
+            font-family: serif;
+
+            font-style: italic;
+
+            font-weight: bold;
+
+            font-size: .85rem;
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            cursor: pointer;
+
+            padding: 0;
+        }
+
+        .btns {
+            display: grid;
+
+            grid-template-columns: 1fr 1fr;
+
+            gap: 12px;
+
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 12px 20px;
+
+            border: none;
+
+            border-radius: 8px;
+
+            color: white;
+
+            cursor: pointer;
+
+            font-weight: 600;
+
+            font-size: .95rem;
+
+            transition:
+                opacity .2s,
+                transform .1s;
+        }
+
+        button:active {
+            transform: scale(.98);
+        }
+
+        .btn-primary {
+            background: var(--success);
+        }
+
+        .btn-secondary {
+            background: var(--danger);
+        }
+
+        .btn-info {
+            background: var(--primary);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .btn-registrar-elegante {
+            width: 100%;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--success),
+                    var(--success-hover)
+                );
+
+            color: white;
+
+            border: none;
+
+            padding: 14px 20px;
+
+            font-size: .95rem;
+
+            font-weight: 600;
+
+            border-radius: 12px;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 6px 18px rgba(16,185,129,.35);
+
+            margin-top: 5px;
+        }
+
+        .acciones-rapidas-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fit,minmax(220px,1fr));
+
+            gap: 15px;
+
+            margin-bottom: 25px;
+        }
+
+        .btn-accion-emergente {
+            padding: 16px;
+
+            border-radius: 12px;
+
+            background: var(--bg-input);
+
+            border: 1px solid var(--border-color);
+
+            color: var(--text-main);
+
+            font-weight: 600;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            gap: 10px;
+        }
+
+        .btn-accion-emergente:hover {
+            border-color: var(--primary);
+
+            background:
+                rgba(59,130,246,.1);
+        }
+
+        .oculto {
+            display: none !important;
+        }
+
+        .contenedor-prioridades {
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fit,minmax(280px,1fr));
+
+            gap: 15px;
+
+            margin-top: 20px;
+        }
+
+        .columna-prioridad {
+            background: var(--bg-input);
+
+            border-radius: 12px;
+
+            padding: 16px;
+
+            border: 1px solid var(--border-color);
+        }
+
+        .columna-prioridad.alta {
+            border-top: 4px solid var(--danger);
+        }
+
+        .columna-prioridad.media {
+            border-top: 4px solid var(--warning);
+        }
+
+        .columna-prioridad.baja {
+            border-top: 4px solid var(--success);
+        }
+
+        .titulo-prioridad {
+            font-size: 1rem;
+
+            font-weight: 700;
+
+            margin-top: 0;
+
+            margin-bottom: 12px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+        }
+
+        .tarjeta-tarea-semanal {
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            padding: 12px;
+
+            border-radius: 8px;
+
+            margin-bottom: 10px;
+
+            font-size: .88rem;
+        }
+
+        .tarjeta-tarea-semanal strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .tarjeta-tarea-semanal small {
+            color: var(--text-muted);
+
+            display: block;
+
+            margin-bottom: 6px;
+        }
+
+        .modal {
+            position: fixed;
+
+            top: 0;
+            left: 0;
+
+            width: 100%;
+            height: 100%;
+
+            background: rgba(0,0,0,.75);
+
+            backdrop-filter: blur(5px);
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            z-index: 999;
+
+            padding: 15px;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            padding: 25px;
+
+            border-radius: 16px;
+
+            text-align: center;
+
+            width: 100%;
+
+            max-width: 500px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+
+            margin-top: 15px;
+
+            border: 1px solid var(--border-color);
+
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+
+            border-collapse: collapse;
+
+            font-size: .85rem;
+
+            text-align: left;
+        }
+
+        th,
+        td {
+            padding: 12px 16px;
+
+            border-bottom:
+                1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-input);
+
+            color: var(--text-muted);
+
+            font-size: .75rem;
+
+            text-transform: uppercase;
+        }
+
+        .alerta {
+            padding: 12px;
+
+            border-radius: 8px;
+
+            margin-top: 15px;
+
+            text-align: center;
+
+            font-size: .9rem;
+        }
+
+        .alerta.exito {
+            background-color:
+                rgba(16,185,129,.15);
+
+            color: #34d399;
+
+            border:
+                1px solid rgba(16,185,129,.3);
+        }
+
+        .alerta.error {
+            background-color:
+                rgba(239,68,68,.15);
+
+            color: #f87171;
+
+            border:
+                1px solid rgba(239,68,68,.3);
+        }
+
+        .badge-maxima {
+            background:
+                rgba(239,68,68,.2);
+
+            color: var(--danger);
+
+            border:
+                1px solid var(--danger);
+
+            padding: 2px 8px;
+
+            border-radius: 9999px;
+
+            font-size: .75rem;
+
+            font-weight: 600;
+        }
+
+        .preview-foto {
+            width: 60px;
+            height: 60px;
+
+            object-fit: cover;
+
+            border-radius: 6px;
+
+            border: 1px solid var(--border-color);
+
+            margin-top: 5px;
+        }
+
+        .firebase-loading {
+            position: fixed;
+
+            bottom: 15px;
+            right: 15px;
+
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            color: var(--text-muted);
+
+            padding: 8px 12px;
+
+            border-radius: 8px;
+
+            font-size: .75rem;
+
+            z-index: 2000;
+        }
+
+        @media(max-width:600px) {
+
+            body {
+                padding: 12px;
+            }
+
+            .card,
+            .card-wide {
+                padding: 20px;
+            }
+
+            .input-group {
+                align-items: stretch;
+            }
+
+            .btn-scan {
+                height: auto;
+            }
+
+            .acciones-rapidas-grid {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <header>
+
+        <button
+            id="themeToggle"
+            class="theme-toggle-btn"
+            title="Cambiar modo de vista"
+            aria-label="Cambiar modo de vista">
+            ☀️
+        </button>
+
+        <div class="logo-container">
+
+            <img
+                src="LOGOCDJ.png"
+                alt="Logo Corazón De Jesús"
+                class="logo-empresa"
+                onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'65\' height=\'65\'><rect width=\'100%\' height=\'100%\' fill=\'%23111827\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%233b82f6\' font-weight=\'bold\' font-size=\'14\'>CDJ</text></svg>';">
+        </div>
+
+        <h1>Portal de Colaboradores</h1>
+
+        <div id="reloj">
+            00:00:00
+        </div>
+
+        <div class="verificador-empresa">
+
+            🏢 Empresa:
+
+            <span id="verificador-empresa-nombre">
+                Corazón De Jesús (CDJ)
+            </span>
+
+            <span
+                id="estado-conexion"
+                class="offline-indicator online">
+                Conectando...
+            </span>
+
+        </div>
+
+        <nav>
+
+            <button
+                id="btn-tab-fichar"
+                class="active"
+                onclick="cambiarVista('fichar')">
+                Fichar
+            </button>
+
+            <button
+                id="btn-tab-bitacora"
+                class="oculto"
+                onclick="cambiarVista('bitacora')">
+                Bitácora
+            </button>
+
+            <button
+                id="btn-tab-tareas"
+                class="oculto"
+                onclick="cambiarVista('tareas')">
+                Tareas
+            </button>
+
+            <button
+                id="btn-tab-admin"
+                onclick="cambiarVista('admin')">
+                Admin
+            </button>
+
+        </nav>
+
+    </header>
+
+    <!-- =========================================================
+         FICHAR
+         ========================================================= -->
+
+    <section id="vista-fichar" class="card">
+
+        <h2 style="margin-top:0;font-size:1.2rem;">
+            Registro de Jornada
+        </h2>
+
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:20px;">
+            Tu espacio digital para reportar tu entrada y salida laboral.
+        </p>
+
+        <label>
+            Identificador (ID, QR o NFC):
+        </label>
+
+        <div class="input-group">
+
+            <input
+                type="text"
+                id="input-nfc-id"
+                placeholder="Ej. EMP-001"
+                autofocus>
+
+            <button
+                type="button"
+                class="btn-scan"
+                title="Escanear Código QR en Vivo"
+                onclick="abrirEscannerQR()">
+
+                <svg viewBox="0 0 24 24">
+                    <path d="M2,4H5V2H2V4M22,4V2H19V4H22M2,20H5V22H2V20M22,20V22H19V20H22M4,9H6V15H4V9M18,9H20V15H18V9M8,6H10V18H8V6M12,6H16V9H12V6M14,11H16V18H14V11M12,14H13V18H12V14Z"/>
+                </svg>
+
+            </button>
+
+        </div>
+
+        <div class="btns">
+
+            <button
+                class="btn-primary"
+                onclick="fichar('entrada')">
+                Entrada
+            </button>
+
+            <button
+                class="btn-secondary"
+                onclick="fichar('salida')">
+                Salida
+            </button>
+
+        </div>
+
+        <div style="margin-top:15px;">
+
+            <button
+                class="btn-info"
+                onclick="activarNfcReal()"
+                style="width:100%;font-size:.85rem;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color);">
+
+                Activar Lector NFC Físico
+
+            </button>
+
+        </div>
+
+    </section>
+
+    <!-- =========================================================
+         BITÁCORA
+         ========================================================= -->
+
+    <section
+        id="vista-bitacora"
+        class="card card-wide oculto">
+
+        <h2 style="margin-top:0;font-size:1.25rem;">
+            Bitácora de Tareas y Actividades
+        </h2>
+
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:20px;">
+            Registra tus actividades diarias.
+        </p>
+
+        <div
+            style="background:var(--bg-input);padding:20px;border-radius:12px;border:1px solid var(--border-color);margin-bottom:25px;">
+
+            <div
+                style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+
+                <div>
+
+                    <label>
+                        ID de Colaborador / Admin:
+                    </label>
+
+                    <input
+                        type="text"
+                        id="bitacora-id-emp"
+                        placeholder="Ej. EMP-001">
+
+                </div>
+
+                <div>
+
+                    <div
+                        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+
+                        <label style="margin-bottom:0;">
+                            Zona / Área:
+                        </label>
+
+                        <button
+                            type="button"
+                            class="btn-info-circulo"
+                            title="Ver Croquis de Zonas"
+                            onclick="abrirModalCroquis()">
+                            i
+                        </button>
+
+                    </div>
+
+                    <select id="bitacora-proyecto">
+
+                        <option>Mesa 1</option>
+                        <option>Mesa 2</option>
+                        <option>Mesa 3</option>
+                        <option>Todas las mesas</option>
+
+                        <option>Pasillo 1</option>
+                        <option>Pasillo 2</option>
+                        <option>Pasillo comidas</option>
+                        <option>Todos los pasillos</option>
+
+                        <option>Repisas</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom:12px;">
+
+                <label style="color:var(--primary);">
+                    Vincular con Tarea Semanal (Opcional):
+                </label>
+
+                <select
+                    id="bitacora-vincular-tarea"
+                    onchange="autoCompletarTareaSeleccionada(this)">
+
+                    <option value="">
+                        -- Ninguna / Actividad libre --
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div style="margin-bottom:12px;">
+
+                <label>
+                    Título de la Tarea / Actividad:
+                </label>
+
+                <input
+                    type="text"
+                    id="bitacora-titulo"
+                    placeholder="Ej. Limpieza de anaqueles">
+
+            </div>
+
+            <div style="margin-bottom:12px;">
+
+                <label>
+                    Descripción / Detalles:
+                </label>
+
+                <textarea
+                    id="bitacora-desc"
+                    rows="3"
+                    placeholder="Detalla lo realizado..."></textarea>
+
+            </div>
+
+            <div style="margin-bottom:12px;">
+
+                <label>
+                    Evidencia Fotográfica (Opcional):
+                </label>
+
+                <input
+                    type="file"
+                    id="bitacora-foto"
+                    accept="image/*"
+                    capture="environment">
+
+            </div>
+
+            <div style="margin-bottom:15px;">
+
+                <label>
+                    Estado:
+                </label>
+
+                <select id="bitacora-estado">
+
+                    <option value="Completado">
+                        Completado
+                    </option>
+
+                    <option value="En proceso">
+                        En proceso
+                    </option>
+
+                    <option value="Pendiente / Bloqueado">
+                        Pendiente / Bloqueado
+                    </option>
+
+                </select>
+
+            </div>
+
+            <button
+                class="btn-registrar-elegante"
+                onclick="guardarTareaBitacora()">
+
+                Registrar Tarea en Bitácora
+
+            </button>
+
+            <div
+                id="mensaje-bitacora"
+                class="alerta oculto">
+            </div>
+
+        </div>
+
+        <h3 style="font-size:1rem;">
+            Actividades Registradas Recientemente
+        </h3>
+
+        <div class="table-responsive">
+
+            <table id="tabla-bitacora-recientes">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Fecha y Hora</th>
+                        <th>Colaborador</th>
+                        <th>Zona / Área</th>
+                        <th>Actividad</th>
+                        <th>Evidencia</th>
+                        <th>Estado</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody></tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <!-- =========================================================
+         TAREAS
+         ========================================================= -->
+
+    <section
+        id="vista-tareas"
+        class="card card-wide oculto">
+
+        <h2 style="margin-top:0;font-size:1.25rem;">
+            Tablero Semanal de Tareas Asignadas
+        </h2>
+
+        <p style="font-size:.85rem;color:var(--text-muted);">
+            Consulta las actividades semanales programadas por la administración.
+        </p>
+
+        <div class="contenedor-prioridades">
+
+            <div class="columna-prioridad alta">
+
+                <h3 class="titulo-prioridad"
+                    style="color:var(--danger);">
+
+                    🔴 Prioridad Alta
+
+                </h3>
+
+                <div id="lista-tareas-alta"></div>
+
+            </div>
+
+            <div class="columna-prioridad media">
+
+                <h3 class="titulo-prioridad"
+                    style="color:var(--warning);">
+
+                    🟡 Prioridad Media
+
+                </h3>
+
+                <div id="lista-tareas-media"></div>
+
+            </div>
+
+            <div class="columna-prioridad baja">
+
+                <h3 class="titulo-prioridad"
+                    style="color:var(--success);">
+
+                    🟢 Prioridad Baja
+
+                </h3>
+
+                <div id="lista-tareas-baja"></div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- =========================================================
+         ADMIN
+         ========================================================= -->
+
+    <section
+        id="vista-admin"
+        class="card card-wide oculto">
+
+        <div id="admin-login-box">
+
+            <h2 style="margin-top:0;">
+                Autenticación Requerida
+            </h2>
+
+            <p style="font-size:.85rem;color:var(--text-muted);">
+                Inicia sesión con tus credenciales de administrador.
+            </p>
+
+            <label>
+                Correo Electrónico:
+            </label>
+
+            <input
+                type="email"
+                id="admin-email"
+                placeholder="admin@empresa.com"
+                style="margin-bottom:12px;">
+
+            <label>
+                Contraseña:
+            </label>
+
+            <input
+                type="password"
+                id="admin-pass"
+                placeholder="••••••••••••"
+                style="margin-bottom:15px;">
+
+            <button
+                class="btn-info"
+                style="width:100%;margin-bottom:10px;"
+                onclick="verificarAdmin()">
+
+                Acceder al Sistema
+
+            </button>
+
+            <button
+                class="btn-warning"
+                style="width:100%;margin-bottom:12px;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-main);"
+                onclick="abrirModalCrearCuentaPrincipal()">
+
+                Crear Cuenta Administrador Principal
+
+            </button>
+
+            <div
+                id="mensaje-login"
+                class="alerta oculto">
+            </div>
+
+        </div>
+
+        <!-- PANEL ADMIN -->
+
+        <div id="admin-panel" class="oculto">
+
+            <div
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+
+                <div>
+
+                    <h2 style="margin:0;font-size:1.25rem;">
+                        Panel de Control Administrativo
+                    </h2>
+
+                    <small
+                        style="color:var(--primary);"
+                        id="label-admin-actual">
+                    </small>
+
+                </div>
+
+                <button
+                    class="btn-secondary"
+                    style="padding:6px 12px;font-size:.8rem;"
+                    onclick="cerrarSesionAdmin()">
+
+                    Cerrar Sesión
+
+                </button>
+
+            </div>
+
+            <hr
+                style="border-color:var(--border-color);margin-bottom:20px;">
+
+            <div class="acciones-rapidas-grid">
+
+                <button
+                    class="btn-accion-emergente"
+                    onclick="abrirModalAltaAdmin()">
+
+                    👑 Alta de Administrador
+
+                </button>
+
+                <button
+                    class="btn-accion-emergente"
+                    onclick="abrirModalAltaEmpleado()">
+
+                    👤 Alta de Empleado
+
+                </button>
+
+                <button
+                    class="btn-accion-emergente"
+                    onclick="abrirModalAsignarTarea()">
+
+                    📌 Asignar Tarea
+
+                </button>
+
+            </div>
+
+            <div
+                style="background:var(--bg-input);padding:15px;border-radius:12px;border:1px solid var(--border-color);margin-bottom:25px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+
+                <div>
+
+                    <strong style="font-size:.9rem;display:block;">
+                        💾 Respaldo de Base de Datos
+                    </strong>
+
+                    <small style="color:var(--text-muted);">
+                        Exporta o importa tus datos en formato JSON.
+                    </small>
+
+                </div>
+
+                <div style="display:flex;gap:10px;">
+
+                    <button
+                        class="btn-info"
+                        style="padding:8px 14px;font-size:.85rem;"
+                        onclick="exportarRespaldoJSON()">
+
+                        Descargar Respaldo JSON
+
+                    </button>
+
+                    <label
+                        class="btn-primary"
+                        style="padding:8px 14px;font-size:.85rem;cursor:pointer;margin:0;display:inline-block;">
+
+                        Restaurar JSON
+
+                        <input
+                            type="file"
+                            id="input-importar-json"
+                            accept=".json"
+                            style="display:none;"
+                            onchange="importarRespaldoJSON(event)">
+
+                    </label>
+
+                </div>
+
+            </div>
+
+            <h3 style="font-size:1rem;">
+                👑 Cuentas Administrativas
+            </h3>
+
+            <div class="table-responsive">
+
+                <table id="tabla-admins">
+
+                    <thead>
+
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Puesto</th>
+                            <th>Correo</th>
+                            <th>ID / NFC</th>
+                            <th>Jerarquía</th>
+                            <th>Acciones</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+            <h3 style="font-size:1rem;margin-top:30px;">
+                📊 Estadísticas de Rendimiento
+            </h3>
+
+            <div class="table-responsive">
+
+                <table id="tabla-estadisticas">
+
+                    <thead>
+
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Horas Semana</th>
+                            <th>Días Año</th>
+                            <th>Horas Año</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+            <h3 style="font-size:1rem;margin-top:30px;">
+                📋 Bitácora Global de Tareas
+            </h3>
+
+            <div class="table-responsive">
+
+                <table id="tabla-admin-bitacora">
+
+                    <thead>
+
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Colaborador</th>
+                            <th>Zona</th>
+                            <th>Tarea</th>
+                            <th>Evidencia</th>
+                            <th>Estado</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+            <h3 style="font-size:1rem;margin-top:30px;">
+                Historial Global de Asistencias
+            </h3>
+
+            <div class="table-responsive">
+
+                <table id="tabla-historial">
+
+                    <thead>
+
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Tiempo Laborado</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+            <h3 style="font-size:1rem;margin-top:30px;">
+                Directorio de Personal
+            </h3>
+
+            <div class="table-responsive">
+
+                <table id="tabla-empleados">
+
+                    <thead>
+
+                        <tr>
+                            <th>Nombre</th>
+                            <th>ID</th>
+                            <th>Puesto</th>
+                            <th>NFC / Código</th>
+                            <th>Acciones</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- =========================================================
+         MODAL QR
+         ========================================================= -->
+
+    <div id="modal-qr" class="modal oculto">
+
+        <div class="modal-content">
+
+            <h3 style="color:var(--primary);margin-top:0;">
+                Escanear Código QR
+            </h3>
+
+            <p style="font-size:.8rem;color:var(--text-muted);">
+                Apunta la cámara hacia el código QR.
+            </p>
+
+            <div
+                id="reader"
+                style="width:100%;border-radius:8px;overflow:hidden;margin-bottom:15px;">
+            </div>
+
+            <button
+                class="btn-secondary"
+                style="width:100%;"
+                onclick="cerrarEscannerQR()">
+
+                Cancelar / Cerrar Cámara
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         CREAR ADMIN PRINCIPAL
+         ========================================================= -->
+
+    <div id="modal-crear-cuenta" class="modal oculto">
+
+        <div
+            class="modal-content"
+            style="text-align:left;">
+
+            <h3 style="color:var(--primary);margin-top:0;">
+                🚀 Crear Administrador Principal
+            </h3>
+
+            <p style="font-size:.8rem;color:var(--text-muted);">
+                Esta cuenta utilizará Firebase Authentication.
+            </p>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Correo Electrónico:
+                </label>
+
+                <input
+                    type="email"
+                    id="crear-correo"
+                    placeholder="tu-correo@empresa.com">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Contraseña:
+                </label>
+
+                <input
+                    type="password"
+                    id="crear-pass"
+                    placeholder="Mínimo 6 caracteres">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Nombre Completo:
+                </label>
+
+                <input
+                    type="text"
+                    id="crear-nombre"
+                    placeholder="Ej. Administrador">
+
+            </div>
+
+            <div
+                style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+
+                <div>
+
+                    <label>
+                        ID / NFC:
+                    </label>
+
+                    <input
+                        type="text"
+                        id="crear-idfichar"
+                        placeholder="Ej. ADM-001">
+
+                </div>
+
+                <div>
+
+                    <label>
+                        Puesto:
+                    </label>
+
+                    <input
+                        type="text"
+                        id="crear-puesto"
+                        value="Super Administrador">
+
+                </div>
+
+            </div>
+
+            <div style="display:flex;gap:10px;">
+
+                <button
+                    class="btn-primary"
+                    style="flex:1;"
+                    onclick="registrarCuentaPrincipalDesdeCero()">
+
+                    Crear Cuenta
+
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    style="flex:1;"
+                    onclick="cerrarModalCrearCuentaPrincipal()">
+
+                    Cancelar
+
+                </button>
+
+            </div>
+
+            <div
+                id="mensaje-crear-cuenta"
+                class="alerta oculto">
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         ALTA ADMIN
+         ========================================================= -->
+
+    <div id="modal-alta-admin" class="modal oculto">
+
+        <div
+            class="modal-content"
+            style="text-align:left;">
+
+            <h3 style="color:var(--primary);margin-top:0;">
+                👑 Registrar Nuevo Administrador
+            </h3>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Nombre Completo:
+                </label>
+
+                <input
+                    type="text"
+                    id="admin-alta-nombre">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Puesto o Cargo:
+                </label>
+
+                <input
+                    type="text"
+                    id="admin-alta-puesto">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Correo Electrónico:
+                </label>
+
+                <input
+                    type="email"
+                    id="admin-alta-correo">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Contraseña:
+                </label>
+
+                <input
+                    type="password"
+                    id="admin-alta-pass">
+
+            </div>
+
+            <div
+                style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+
+                <div>
+
+                    <label>
+                        ID para Fichar:
+                    </label>
+
+                    <input
+                        type="text"
+                        id="admin-alta-id">
+
+                </div>
+
+                <div>
+
+                    <label>
+                        NFC / QR:
+                    </label>
+
+                    <input
+                        type="text"
+                        id="admin-alta-nfc">
+
+                </div>
+
+            </div>
+
+            <div style="display:flex;gap:10px;">
+
+                <button
+                    class="btn-primary"
+                    style="flex:1;"
+                    onclick="guardarNuevoAdminDesdePanel()">
+
+                    Guardar Administrador
+
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    style="flex:1;"
+                    onclick="cerrarModalAltaAdmin()">
+
+                    Cancelar
+
+                </button>
+
+            </div>
+
+            <div
+                id="mensaje-alta-admin"
+                class="alerta oculto">
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         ALTA EMPLEADO
+         ========================================================= -->
+
+    <div id="modal-alta-empleado" class="modal oculto">
+
+        <div
+            class="modal-content"
+            style="text-align:left;">
+
+            <h3 style="color:var(--primary);margin-top:0;">
+                👤 Alta de Empleado
+            </h3>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Nombre Completo:
+                </label>
+
+                <input
+                    type="text"
+                    id="nuevo-nombre">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    ID de Empleado:
+                </label>
+
+                <input
+                    type="text"
+                    id="nuevo-id">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Puesto o Área:
+                </label>
+
+                <input
+                    type="text"
+                    id="nuevo-puesto">
+
+            </div>
+
+            <div style="margin-bottom:15px;">
+
+                <label>
+                    Código NFC / QR:
+                </label>
+
+                <input
+                    type="text"
+                    id="nuevo-nfc">
+
+            </div>
+
+            <div style="display:flex;gap:10px;">
+
+                <button
+                    class="btn-primary"
+                    style="flex:1;"
+                    onclick="guardarEmpleado()">
+
+                    Guardar Empleado
+
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    style="flex:1;"
+                    onclick="cerrarModalAltaEmpleado()">
+
+                    Cancelar
+
+                </button>
+
+            </div>
+
+            <div
+                id="mensaje-admin"
+                class="alerta oculto">
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         ASIGNAR TAREA
+         ========================================================= -->
+
+    <div id="modal-asignar-tarea" class="modal oculto">
+
+        <div
+            class="modal-content"
+            style="text-align:left;">
+
+            <h3 style="color:var(--primary);margin-top:0;">
+                📌 Asignar Nueva Tarea
+            </h3>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Título:
+                </label>
+
+                <input
+                    type="text"
+                    id="admin-tarea-titulo">
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Prioridad:
+                </label>
+
+                <select id="admin-tarea-prioridad">
+
+                    <option value="Alta">
+                        🔴 Alta
+                    </option>
+
+                    <option value="Media">
+                        🟡 Media
+                    </option>
+
+                    <option value="Baja">
+                        🟢 Baja
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div style="margin-bottom:10px;">
+
+                <label>
+                    Zona / Área:
+                </label>
+
+                <select id="admin-tarea-zona">
+
+                    <option>Mesa 1</option>
+                    <option>Mesa 2</option>
+                    <option>Mesa 3</option>
+                    <option>Todas las mesas</option>
+
+                    <option>Pasillo 1</option>
+                    <option>Pasillo 2</option>
+                    <option>Pasillo comidas</option>
+                    <option>Todos los pasillos</option>
+
+                    <option>Repisas</option>
+
+                </select>
+
+            </div>
+
+            <div style="margin-bottom:15px;">
+
+                <label>
+                    Descripción:
+                </label>
+
+                <textarea
+                    id="admin-tarea-desc"
+                    rows="3">
+                </textarea>
+
+            </div>
+
+            <div style="display:flex;gap:10px;">
+
+                <button
+                    class="btn-primary"
+                    style="flex:1;"
+                    onclick="guardarTareaSemanalAdmin()">
+
+                    Publicar Tarea
+
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    style="flex:1;"
+                    onclick="cerrarModalAsignarTarea()">
+
+                    Cancelar
+
+                </button>
+
+            </div>
+
+            <div
+                id="mensaje-admin-tarea"
+                class="alerta oculto">
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         RESULTADO
+         ========================================================= -->
+
+    <div id="modal-resultado" class="modal oculto">
+
+        <div class="modal-content">
+
+            <h3 id="modal-titulo">
+                ¡Registro Exitoso!
+            </h3>
+
+            <div
+                id="modal-texto-info"
+                style="text-align:left;background:var(--bg-input);padding:15px;border-radius:8px;margin:15px 0;">
+            </div>
+
+            <button
+                class="btn-info"
+                style="width:100%;"
+                onclick="cerrarModalResultado()">
+
+                Aceptar
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         CROQUIS
+         ========================================================= -->
+
+    <div id="modal-croquis" class="modal oculto">
+
+        <div class="modal-content">
+
+            <h3 style="color:var(--primary);">
+                Croquis de Zonas del Local
+            </h3>
+
+            <img
+                src="mapa.png"
+                alt="Croquis"
+                style="width:100%;border-radius:8px;margin-bottom:15px;"
+                onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'200\'><rect width=\'100%\' height=\'100%\' fill=\'%231f2937\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%239ca3af\'>Croquis CDJ</text></svg>';">
+
+            <button
+                class="btn-info"
+                style="width:100%;"
+                onclick="cerrarModalCroquis()">
+
+                Cerrar Croquis
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         EDITAR
+         ========================================================= -->
+
+    <div id="modal-editar" class="modal oculto">
+
+        <div
+            class="modal-content"
+            style="max-width:500px;text-align:left;">
+
+            <h3
+                style="color:var(--primary);margin-top:0;"
+                id="modal-editar-titulo">
+
+                Editar Registro
+
+            </h3>
+
+            <input
+                type="hidden"
+                id="edit-tipo">
+
+            <input
+                type="hidden"
+                id="edit-id-doc">
+
+            <div style="margin-bottom:12px;">
+
+                <label>
+                    Nombre:
+                </label>
+
+                <input id="edit-nombre">
+
+            </div>
+
+            <div
+                style="margin-bottom:12px;"
+                id="div-edit-puesto">
+
+                <label>
+                    Puesto:
+                </label>
+
+                <input id="edit-puesto">
+
+            </div>
+
+            <div
+                style="margin-bottom:12px;"
+                id="div-edit-correo">
+
+                <label>
+                    Correo:
+                </label>
+
+                <input
+                    type="email"
+                    id="edit-correo">
+
+            </div>
+
+            <div
+                style="margin-bottom:12px;"
+                id="div-edit-pass">
+
+                <label>
+                    Nueva contraseña:
+                </label>
+
+                <input
+                    type="password"
+                    id="edit-pass"
+                    placeholder="Déjalo vacío para conservarla">
+
+            </div>
+
+            <div style="margin-bottom:12px;">
+
+                <label id="label-edit-id">
+                    ID:
+                </label>
+
+                <input id="edit-id-fichar">
+
+            </div>
+
+            <div style="margin-bottom:20px;">
+
+                <label id="label-edit-nfc">
+                    NFC / QR:
+                </label>
+
+                <input id="edit-nfc">
+
+            </div>
+
+            <div style="display:flex;gap:10px;">
+
+                <button
+                    class="btn-primary"
+                    style="flex:1;"
+                    onclick="guardarEdicionModal()">
+
+                    Guardar Cambios
+
+                </button>
+
+                <button
+                    class="btn-secondary"
+                    style="flex:1;"
+                    onclick="cerrarModalEditar()">
+
+                    Cancelar
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div
+        id="firebase-loading"
+        class="firebase-loading">
+
+        Conectando con Firebase...
+
+    </div>
+
+    <!-- =========================================================
+         JAVASCRIPT DE LA APLICACIÓN
+         ========================================================= -->
+
+    <script>
+
+        /* =========================================================
+           VARIABLES
+           ========================================================= */
+
+        const EMPRESA_UNICA = {
+            id: "CDJ",
+            nombre: "Corazón De Jesús"
+        };
+
+        let empleados = [];
+        let cuentasAdmin = [];
+        let registros = [];
+        let bitacoraTareas = [];
+        let tareasSemanales = [];
+
+        let adminSesionActiva = null;
+        let firebaseListo = false;
+        let html5QrCode = null;
+
+        /* =========================================================
+           LOCAL STORAGE
+           ========================================================= */
+
+        function cargarLocal() {
+
+            empleados =
+                JSON.parse(
+                    localStorage.getItem("control_empleados")
+                ) || [];
+
+            cuentasAdmin =
+                JSON.parse(
+                    localStorage.getItem("control_cuentas_admin")
+                ) || [];
+
+            registros =
+                JSON.parse(
+                    localStorage.getItem("control_registros")
+                ) || [];
+
+            bitacoraTareas =
+                JSON.parse(
+                    localStorage.getItem("control_bitacora")
+                ) || [];
+
+            tareasSemanales =
+                JSON.parse(
+                    localStorage.getItem("control_tareas_semanales")
+                ) || [];
+        }
+
+        function guardarLocal() {
+
+            localStorage.setItem(
+                "control_empleados",
+                JSON.stringify(empleados)
+            );
+
+            localStorage.setItem(
+                "control_cuentas_admin",
+                JSON.stringify(cuentasAdmin)
+            );
+
+            localStorage.setItem(
+                "control_registros",
+                JSON.stringify(registros)
+            );
+
+            localStorage.setItem(
+                "control_bitacora",
+                JSON.stringify(bitacoraTareas)
+            );
+
+            localStorage.setItem(
+                "control_tareas_semanales",
+                JSON.stringify(tareasSemanales)
+            );
+        }
+
+        cargarLocal();
+
+        /* =========================================================
+           FIREBASE READY
+           ========================================================= */
+
+        window.addEventListener(
+            "firebase-ready",
+            async () => {
+
+                firebaseListo = true;
+
+                document.getElementById(
+                    "firebase-loading"
+                ).remove();
+
+                actualizarEstadoConexion();
+
+                await sincronizarDatosDesdeCloud();
+
+                configurarAuth();
+
+            }
+        );
+
+        /* =========================================================
+           CONEXIÓN
+           ========================================================= */
+
+        const estadoConexion =
+            document.getElementById("estado-conexion");
+
+        function actualizarEstadoConexion() {
+
+            if (
+                navigator.onLine &&
+                firebaseListo
+            ) {
+
+                estadoConexion.textContent =
+                    "Online · Firebase";
+
+                estadoConexion.classList.add(
+                    "online"
+                );
+
+            } else if (!navigator.onLine) {
+
+                estadoConexion.textContent =
+                    "Offline · Local";
+
+                estadoConexion.classList.remove(
+                    "online"
+                );
+
+            } else {
+
+                estadoConexion.textContent =
+                    "Conectando...";
+
+            }
+
+        }
+
+        window.addEventListener(
+            "online",
+            actualizarEstadoConexion
+        );
+
+        window.addEventListener(
+            "offline",
+            actualizarEstadoConexion
+        );
+
+        /* =========================================================
+           FIRESTORE
+           ========================================================= */
+
+        async function sincronizarDatosDesdeCloud() {
+
+            if (!window.firebaseEnabled)
+                return;
+
+            try {
+
+                const {
+                    collection,
+                    getDocs
+                } = window.fsModule;
+
+                /* EMPLEADOS */
+
+                const snapEmp =
+                    await getDocs(
+                        collection(
+                            window.db,
+                            "empleados"
+                        )
+                    );
+
+                empleados =
+                    snapEmp.docs.map(
+                        d => ({
+                            idDoc: d.id,
+                            ...d.data()
+                        })
+                    );
+
+                /* ADMINS */
+
+                const snapAdmins =
+                    await getDocs(
+                        collection(
+                            window.db,
+                            "cuentasAdmin"
+                        )
+                    );
+
+                cuentasAdmin =
+                    snapAdmins.docs.map(
+                        d => ({
+                            idDoc: d.id,
+                            ...d.data()
+                        })
+                    );
+
+                /*
+                 * IMPORTANTE:
+                 *
+                 * Aquí ya NO existe "pass".
+                 */
+
+                /* REGISTROS */
+
+                const snapReg =
+                    await getDocs(
+                        collection(
+                            window.db,
+                            "registros"
+                        )
+                    );
+
+                registros =
+                    snapReg.docs.map(
+                        d => ({
+                            idDoc: d.id,
+                            ...d.data()
+                        })
+                    );
+
+                /* BITÁCORA */
+
+                const snapBit =
+                    await getDocs(
+                        collection(
+                            window.db,
+                            "bitacoraTareas"
+                        )
+                    );
+
+                bitacoraTareas =
+                    snapBit.docs.map(
+                        d => ({
+                            idDoc: d.id,
+                            ...d.data()
+                        })
+                    );
+
+                /* TAREAS */
+
+                const snapTar =
+                    await getDocs(
+                        collection(
+                            window.db,
+                            "tareasSemanales"
+                        )
+                    );
+
+                tareasSemanales =
+                    snapTar.docs.map(
+                        d => ({
+                            idDoc: d.id,
+                            ...d.data()
+                        })
+                    );
+
+                guardarLocal();
+
+                renderizarTodoAdmin();
+                renderizarTableroTareasSemanales();
+
+            } catch (error) {
+
+                console.error(
+                    "Error sincronizando Firebase:",
+                    error
+                );
+
+                actualizarEstadoConexion();
+
+            }
+
+        }
+
+        /* =========================================================
+           AUTENTICACIÓN
+           ========================================================= */
+
+        function configurarAuth() {
+
+            const {
+                onAuthStateChanged
+            } = window.authModule;
+
+            onAuthStateChanged(
+                window.auth,
+                async user => {
+
+                    if (!user) {
+
+                        adminSesionActiva = null;
+
+                        document
+                            .getElementById(
+                                "admin-login-box"
+                            )
+                            .classList.remove("oculto");
+
+                        document
+                            .getElementById(
+                                "admin-panel"
+                            )
+                            .classList.add("oculto");
+
+                        return;
+                    }
+
+                    /*
+                     * Buscamos el perfil administrativo
+                     * asociado al correo.
+                     */
+
+                    const admin =
+                        cuentasAdmin.find(
+                            a =>
+                                a.correo ===
+                                user.email
+                        );
+
+                    if (admin) {
+
+                        adminSesionActiva = admin;
+
+                        document
+                            .getElementById(
+                                "admin-login-box"
+                            )
+                            .classList.add("oculto");
+
+                        document
+                            .getElementById(
+                                "admin-panel"
+                            )
+                            .classList.remove("oculto");
+
+                        document
+                            .getElementById(
+                                "label-admin-actual"
+                            )
+                            .textContent =
+                            `Sesión: ${admin.nombre} (${admin.jerarquia})`;
+
+                        renderizarTodoAdmin();
+
+                    }
+
+                }
+            );
+
+        }
+
+        /* =========================================================
+           LOGIN ADMIN
+           ========================================================= */
+
+        async function verificarAdmin() {
+
+            const correo =
+                document
+                    .getElementById("admin-email")
+                    .value
+                    .trim()
+                    .toLowerCase();
+
+            const pass =
+                document
+                    .getElementById("admin-pass")
+                    .value;
+
+            const msg =
+                document.getElementById(
+                    "mensaje-login"
+                );
+
+            if (!correo || !pass) {
+
+                mostrarAlerta(
+                    msg,
+                    "Ingresa correo y contraseña.",
+                    "error"
+                );
+
+                return;
+            }
+
+            try {
+
+                const {
+                    signInWithEmailAndPassword
+                } = window.authModule;
+
+                await signInWithEmailAndPassword(
+                    window.auth,
+                    correo,
+                    pass
+                );
+
+                document.getElementById(
+                    "admin-email"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-pass"
+                ).value = "";
+
+            } catch (error) {
+
+                console.error(error);
+
+                let mensaje =
+                    "Correo o contraseña incorrectos.";
+
+                if (
+                    error.code ===
+                    "auth/invalid-credential"
+                ) {
+                    mensaje =
+                        "Correo o contraseña incorrectos.";
+                }
+
+                if (
+                    error.code ===
+                    "auth/too-many-requests"
+                ) {
+                    mensaje =
+                        "Demasiados intentos. Intenta nuevamente más tarde.";
+                }
+
+                mostrarAlerta(
+                    msg,
+                    mensaje,
+                    "error"
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           CREAR ADMIN PRINCIPAL
+           ========================================================= */
+
+        function abrirModalCrearCuentaPrincipal() {
+
+            document
+                .getElementById(
+                    "modal-crear-cuenta"
+                )
+                .classList.remove("oculto");
+
+        }
+
+        function cerrarModalCrearCuentaPrincipal() {
+
+            document
+                .getElementById(
+                    "modal-crear-cuenta"
+                )
+                .classList.add("oculto");
+
+        }
+
+        async function registrarCuentaPrincipalDesdeCero() {
+
+            const correo =
+                document
+                    .getElementById("crear-correo")
+                    .value
+                    .trim()
+                    .toLowerCase();
+
+            const pass =
+                document
+                    .getElementById("crear-pass")
+                    .value;
+
+            const nombre =
+                document
+                    .getElementById("crear-nombre")
+                    .value
+                    .trim();
+
+            const idFichar =
+                document
+                    .getElementById("crear-idfichar")
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            const puesto =
+                document
+                    .getElementById("crear-puesto")
+                    .value
+                    .trim() ||
+                "Super Administrador";
+
+            const msg =
+                document.getElementById(
+                    "mensaje-crear-cuenta"
+                );
+
+            if (
+                !correo ||
+                !pass ||
+                !nombre ||
+                !idFichar
+            ) {
+
+                mostrarAlerta(
+                    msg,
+                    "Completa todos los campos.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (pass.length < 6) {
+
+                mostrarAlerta(
+                    msg,
+                    "La contraseña debe tener al menos 6 caracteres.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (cuentasAdmin.length > 0) {
+
+                mostrarAlerta(
+                    msg,
+                    "Ya existe una cuenta administrativa.",
+                    "error"
+                );
+
+                return;
+            }
+
+            try {
+
+                const {
+                    createUserWithEmailAndPassword
+                } = window.authModule;
+
+                /*
+                 * Creamos el usuario en Firebase Authentication.
+                 */
+
+                const cred =
+                    await createUserWithEmailAndPassword(
+                        window.auth,
+                        correo,
+                        pass
+                    );
+
+                const nuevoAdmin = {
+
+                    uid: cred.user.uid,
+
+                    nombre,
+                    puesto,
+                    correo,
+
+                    idFichar,
+                    nfcFichar: idFichar,
+
+                    jerarquia: "Principal",
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                const nuevoEmpleado = {
+
+                    id: idFichar,
+
+                    nombre,
+
+                    puesto:
+                        `${puesto} (Admin)`,
+
+                    nfc: idFichar,
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                const {
+                    collection,
+                    addDoc
+                } = window.fsModule;
+
+                const adminRef =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "cuentasAdmin"
+                        ),
+                        nuevoAdmin
+                    );
+
+                const empRef =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "empleados"
+                        ),
+                        nuevoEmpleado
+                    );
+
+                nuevoAdmin.idDoc =
+                    adminRef.id;
+
+                nuevoEmpleado.idDoc =
+                    empRef.id;
+
+                cuentasAdmin.push(
+                    nuevoAdmin
+                );
+
+                empleados.push(
+                    nuevoEmpleado
+                );
+
+                guardarLocal();
+
+                mostrarAlerta(
+                    msg,
+                    "¡Administrador principal creado correctamente!",
+                    "exito"
+                );
+
+                setTimeout(
+                    () => {
+
+                        cerrarModalCrearCuentaPrincipal();
+
+                    },
+                    1000
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                let mensaje =
+                    "No se pudo crear la cuenta.";
+
+                if (
+                    error.code ===
+                    "auth/email-already-in-use"
+                ) {
+
+                    mensaje =
+                        "Ese correo ya está registrado en Firebase.";
+
+                } else if (
+                    error.code ===
+                    "auth/invalid-email"
+                ) {
+
+                    mensaje =
+                        "El correo electrónico no es válido.";
+
+                } else if (
+                    error.code ===
+                    "auth/weak-password"
+                ) {
+
+                    mensaje =
+                        "La contraseña es demasiado débil.";
+
+                }
+
+                mostrarAlerta(
+                    msg,
+                    mensaje,
+                    "error"
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           CERRAR SESIÓN
+           ========================================================= */
+
+        async function cerrarSesionAdmin() {
+
+            try {
+
+                await window.authModule.signOut(
+                    window.auth
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+            adminSesionActiva = null;
+
+            document
+                .getElementById(
+                    "admin-panel"
+                )
+                .classList.add("oculto");
+
+            document
+                .getElementById(
+                    "admin-login-box"
+                )
+                .classList.remove("oculto");
+
+        }
+
+        /* =========================================================
+           ALTA DE ADMINISTRADOR
+           ========================================================= */
+
+        function abrirModalAltaAdmin() {
+
+            document
+                .getElementById(
+                    "modal-alta-admin"
+                )
+                .classList.remove("oculto");
+
+        }
+
+        function cerrarModalAltaAdmin() {
+
+            document
+                .getElementById(
+                    "modal-alta-admin"
+                )
+                .classList.add("oculto");
+
+        }
+
+        async function guardarNuevoAdminDesdePanel() {
+
+            if (
+                !adminSesionActiva ||
+                (
+                    adminSesionActiva.jerarquia !==
+                    "Principal"
+                    &&
+                    adminSesionActiva.jerarquia !==
+                    "Administrador"
+                )
+            ) {
+
+                alert(
+                    "No tienes permisos para crear administradores."
+                );
+
+                return;
+            }
+
+            const nombre =
+                document
+                    .getElementById("admin-alta-nombre")
+                    .value
+                    .trim();
+
+            const puesto =
+                document
+                    .getElementById("admin-alta-puesto")
+                    .value
+                    .trim();
+
+            const correo =
+                document
+                    .getElementById("admin-alta-correo")
+                    .value
+                    .trim()
+                    .toLowerCase();
+
+            const pass =
+                document
+                    .getElementById("admin-alta-pass")
+                    .value;
+
+            const idFichar =
+                document
+                    .getElementById("admin-alta-id")
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            const nfcFichar =
+                document
+                    .getElementById("admin-alta-nfc")
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            const msg =
+                document.getElementById(
+                    "mensaje-alta-admin"
+                );
+
+            if (
+                !nombre ||
+                !puesto ||
+                !correo ||
+                !pass ||
+                !idFichar ||
+                !nfcFichar
+            ) {
+
+                mostrarAlerta(
+                    msg,
+                    "Todos los campos son obligatorios.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (pass.length < 6) {
+
+                mostrarAlerta(
+                    msg,
+                    "La contraseña debe tener al menos 6 caracteres.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (
+                cuentasAdmin.some(
+                    a =>
+                        a.correo === correo
+                )
+            ) {
+
+                mostrarAlerta(
+                    msg,
+                    "El correo ya está registrado.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (
+                empleados.some(
+                    e =>
+                        e.id === idFichar ||
+                        e.nfc === nfcFichar
+                )
+            ) {
+
+                mostrarAlerta(
+                    msg,
+                    "El ID o NFC/QR ya está ocupado.",
+                    "error"
+                );
+
+                return;
+            }
+
+            try {
+
+                /*
+                 * SEGUNDA INSTANCIA:
+                 *
+                 * El administrador actual NO pierde
+                 * su sesión.
+                 */
+
+                const {
+                    createUserWithEmailAndPassword,
+                    signOut
+                } = window.authModule;
+
+                const cred =
+                    await createUserWithEmailAndPassword(
+                        window.secondaryAuth,
+                        correo,
+                        pass
+                    );
+
+                const uid =
+                    cred.user.uid;
+
+                const nuevoAdmin = {
+
+                    uid,
+
+                    nombre,
+                    puesto,
+                    correo,
+
+                    idFichar,
+                    nfcFichar,
+
+                    jerarquia:
+                        "Administrador",
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                const nuevoEmpleado = {
+
+                    id: idFichar,
+
+                    nombre,
+
+                    puesto:
+                        `${puesto} (Admin)`,
+
+                    nfc: nfcFichar,
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                const {
+                    collection,
+                    addDoc
+                } = window.fsModule;
+
+                const adminRef =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "cuentasAdmin"
+                        ),
+                        nuevoAdmin
+                    );
+
+                const empRef =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "empleados"
+                        ),
+                        nuevoEmpleado
+                    );
+
+                nuevoAdmin.idDoc =
+                    adminRef.id;
+
+                nuevoEmpleado.idDoc =
+                    empRef.id;
+
+                cuentasAdmin.push(
+                    nuevoAdmin
+                );
+
+                empleados.push(
+                    nuevoEmpleado
+                );
+
+                guardarLocal();
+
+                await signOut(
+                    window.secondaryAuth
+                );
+
+                mostrarAlerta(
+                    msg,
+                    "¡Administrador registrado correctamente!",
+                    "exito"
+                );
+
+                document.getElementById(
+                    "admin-alta-nombre"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-alta-puesto"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-alta-correo"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-alta-pass"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-alta-id"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-alta-nfc"
+                ).value = "";
+
+                setTimeout(
+                    () => {
+
+                        cerrarModalAltaAdmin();
+
+                        renderizarTodoAdmin();
+
+                    },
+                    1000
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                mostrarAlerta(
+                    msg,
+                    traducirErrorFirebase(error),
+                    "error"
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           EMPLEADOS
+           ========================================================= */
+
+        function abrirModalAltaEmpleado() {
+
+            document
+                .getElementById(
+                    "modal-alta-empleado"
+                )
+                .classList.remove("oculto");
+
+        }
+
+        function cerrarModalAltaEmpleado() {
+
+            document
+                .getElementById(
+                    "modal-alta-empleado"
+                )
+                .classList.add("oculto");
+
+        }
+
+        async function guardarEmpleado() {
+
+            const nombre =
+                document
+                    .getElementById("nuevo-nombre")
+                    .value
+                    .trim();
+
+            const id =
+                document
+                    .getElementById("nuevo-id")
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            const puesto =
+                document
+                    .getElementById("nuevo-puesto")
+                    .value
+                    .trim() ||
+                "General";
+
+            const nfc =
+                document
+                    .getElementById("nuevo-nfc")
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            const msg =
+                document.getElementById(
+                    "mensaje-admin"
+                );
+
+            if (!nombre || !id || !nfc) {
+
+                mostrarAlerta(
+                    msg,
+                    "Completa los campos solicitados.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (
+                empleados.some(
+                    e =>
+                        e.id === id ||
+                        e.nfc === nfc
+                )
+            ) {
+
+                mostrarAlerta(
+                    msg,
+                    "El ID o NFC/QR ya está registrado.",
+                    "error"
+                );
+
+                return;
+            }
+
+            try {
+
+                const nuevoEmpleado = {
+
+                    id,
+                    nombre,
+                    puesto,
+                    nfc,
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                const {
+                    collection,
+                    addDoc
+                } = window.fsModule;
+
+                const ref =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "empleados"
+                        ),
+                        nuevoEmpleado
+                    );
+
+                nuevoEmpleado.idDoc =
+                    ref.id;
+
+                empleados.push(
+                    nuevoEmpleado
+                );
+
+                guardarLocal();
+
+                mostrarAlerta(
+                    msg,
+                    "¡Empleado registrado con éxito!",
+                    "exito"
+                );
+
+                document.getElementById(
+                    "nuevo-nombre"
+                ).value = "";
+
+                document.getElementById(
+                    "nuevo-id"
+                ).value = "";
+
+                document.getElementById(
+                    "nuevo-puesto"
+                ).value = "";
+
+                document.getElementById(
+                    "nuevo-nfc"
+                ).value = "";
+
+                setTimeout(
+                    () => {
+
+                        cerrarModalAltaEmpleado();
+
+                        renderizarTodoAdmin();
+
+                    },
+                    1000
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                mostrarAlerta(
+                    msg,
+                    "No se pudo guardar el empleado.",
+                    "error"
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           TAREAS SEMANALES
+           ========================================================= */
+
+        function abrirModalAsignarTarea() {
+
+            document
+                .getElementById(
+                    "modal-asignar-tarea"
+                )
+                .classList.remove("oculto");
+
+        }
+
+        function cerrarModalAsignarTarea() {
+
+            document
+                .getElementById(
+                    "modal-asignar-tarea"
+                )
+                .classList.add("oculto");
+
+        }
+
+        async function guardarTareaSemanalAdmin() {
+
+            const titulo =
+                document
+                    .getElementById(
+                        "admin-tarea-titulo"
+                    )
+                    .value
+                    .trim();
+
+            const prioridad =
+                document
+                    .getElementById(
+                        "admin-tarea-prioridad"
+                    )
+                    .value;
+
+            const zona =
+                document
+                    .getElementById(
+                        "admin-tarea-zona"
+                    )
+                    .value;
+
+            const desc =
+                document
+                    .getElementById(
+                        "admin-tarea-desc"
+                    )
+                    .value
+                    .trim();
+
+            const msg =
+                document.getElementById(
+                    "mensaje-admin-tarea"
+                );
+
+            if (!titulo) {
+
+                mostrarAlerta(
+                    msg,
+                    "Debe colocar un título.",
+                    "error"
+                );
+
+                return;
+            }
+
+            try {
+
+                const nuevaTarea = {
+
+                    id: Date.now(),
+
+                    titulo,
+                    prioridad,
+                    zona,
+                    desc,
+
+                    empresaId:
+                        EMPRESA_UNICA.id,
+
+                    creadaPor:
+                        adminSesionActiva
+                            ?.uid || null,
+
+                    creadaEn:
+                        new Date().toISOString()
+
+                };
+
+                const {
+                    collection,
+                    addDoc
+                } = window.fsModule;
+
+                const ref =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "tareasSemanales"
+                        ),
+                        nuevaTarea
+                    );
+
+                nuevaTarea.idDoc =
+                    ref.id;
+
+                tareasSemanales.push(
+                    nuevaTarea
+                );
+
+                guardarLocal();
+
+                mostrarAlerta(
+                    msg,
+                    "¡Tarea publicada!",
+                    "exito"
+                );
+
+                document.getElementById(
+                    "admin-tarea-titulo"
+                ).value = "";
+
+                document.getElementById(
+                    "admin-tarea-desc"
+                ).value = "";
+
+                setTimeout(
+                    () => {
+
+                        cerrarModalAsignarTarea();
+
+                        renderizarTableroTareasSemanales();
+
+                    },
+                    1000
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                mostrarAlerta(
+                    msg,
+                    "No se pudo publicar la tarea.",
+                    "error"
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           FICHAR
+           ========================================================= */
+
+        async function fichar(tipo) {
+
+            const input =
+                document
+                    .getElementById(
+                        "input-nfc-id"
+                    )
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            if (!input) {
+
+                alert(
+                    "Por favor ingresa tu ID o NFC."
+                );
+
+                return;
+            }
+
+            const empleado =
+                empleados.find(
+                    e =>
+                        String(e.id)
+                            .toUpperCase() === input ||
+                        String(e.nfc)
+                            .toUpperCase() === input
+                );
+
+            if (!empleado) {
+
+                mostrarPopupResultado(
+                    "Acceso Denegado",
+                    `<strong style="color:var(--danger);">
+                        Identificador no registrado.
+                    </strong>`,
+                    false
+                );
+
+                document.getElementById(
+                    "input-nfc-id"
+                ).value = "";
+
+                return;
+            }
+
+            const ahora =
+                new Date();
+
+            const fechaActual =
+                new Intl.DateTimeFormat(
+                    "es-MX",
+                    {
+                        timeZone:
+                            "America/Mexico_City",
+
+                        dateStyle:
+                            "short"
+                    }
+                ).format(ahora);
+
+            const horaActual =
+                new Intl.DateTimeFormat(
+                    "es-MX",
+                    {
+                        timeZone:
+                            "America/Mexico_City",
+
+                        hour:
+                            "2-digit",
+
+                        minute:
+                            "2-digit",
+
+                        second:
+                            "2-digit",
+
+                        hour12:
+                            false
+                    }
+                ).format(ahora);
+
+            const jornadaTerminada =
+                registros.find(
+                    r =>
+                        r.idEmpleado ===
+                            empleado.id &&
+
+                        r.fechaEntrada ===
+                            fechaActual &&
+
+                        r.horaSalida
+                );
+
+            if (jornadaTerminada) {
+
+                mostrarPopupResultado(
+                    "Jornada Concluida",
+                    `<strong>${escapeHTML(empleado.nombre)}</strong>,
+                     ya concluiste tu jornada hoy.`,
+                    false
+                );
+
+                limpiarInputFichar();
+
+                return;
+            }
+
+            if (tipo === "entrada") {
+
+                const abierto =
+                    registros.find(
+                        r =>
+                            r.idEmpleado ===
+                                empleado.id &&
+                            !r.horaSalida
+                    );
+
+                if (abierto) {
+
+                    mostrarPopupResultado(
+                        "Aviso",
+                        `<strong>${escapeHTML(empleado.nombre)}</strong>
+                         ya tiene una entrada activa.`,
+                        false
+                    );
+
+                    mostrarModulosJornada();
+
+                    limpiarInputFichar();
+
+                    return;
+                }
+
+                const [
+                    h,
+                    m,
+                    s
+                ] =
+                    horaActual
+                        .split(":")
+                        .map(Number);
+
+                const esTarde =
+                    (
+                        h * 3600 +
+                        m * 60 +
+                        s
+                    ) >
+                    (
+                        9 * 3600 +
+                        10 * 60
+                    );
+
+                const nuevoRegistro = {
+
+                    idReg:
+                        Date.now(),
+
+                    idEmpleado:
+                        empleado.id,
+
+                    nombre:
+                        empleado.nombre,
+
+                    fechaEntrada:
+                        fechaActual,
+
+                    horaEntrada:
+                        horaActual,
+
+                    anio:
+                        ahora.getFullYear(),
+
+                    timestampEntrada:
+                        ahora.getTime(),
+
+                    esTarde,
+
+                    fechaSalida:
+                        null,
+
+                    horaSalida:
+                        null,
+
+                    segundosLaborados:
+                        0,
+
+                    tiempoLaborado:
+                        "-",
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                try {
+
+                    const {
+                        collection,
+                        addDoc
+                    } = window.fsModule;
+
+                    const ref =
+                        await addDoc(
+                            collection(
+                                window.db,
+                                "registros"
+                            ),
+                            nuevoRegistro
+                        );
+
+                    nuevoRegistro.idDoc =
+                        ref.id;
+
+                    registros.push(
+                        nuevoRegistro
+                    );
+
+                    guardarLocal();
+
+                    document.getElementById(
+                        "bitacora-id-emp"
+                    ).value =
+                        empleado.id;
+
+                    mostrarModulosJornada();
+
+                    mostrarPopupResultado(
+                        "¡Entrada Registrada!",
+                        `
+                        Colaborador:
+                        <strong>
+                            ${escapeHTML(empleado.nombre)}
+                        </strong>
+                        <br>
+                        Hora:
+                        <strong>
+                            ${horaActual}
+                        </strong>
+                        <br><br>
+                        <small style="color:var(--primary);">
+                            Bitácora y Tareas habilitadas.
+                        </small>
+                        `,
+                        true
+                    );
+
+                } catch (error) {
+
+                    console.error(error);
+
+                    mostrarPopupResultado(
+                        "Error",
+                        "No se pudo registrar la entrada en la nube.",
+                        false
+                    );
+
+                }
+
+            } else {
+
+                const abierto =
+                    registros.find(
+                        r =>
+                            r.idEmpleado ===
+                                empleado.id &&
+                            !r.horaSalida
+                    );
+
+                if (!abierto) {
+
+                    mostrarPopupResultado(
+                        "Aviso",
+                        `No hay entrada registrada hoy para
+                         <strong>${escapeHTML(empleado.nombre)}</strong>.`,
+                        false
+                    );
+
+                    limpiarInputFichar();
+
+                    return;
+                }
+
+                abierto.fechaSalida =
+                    fechaActual;
+
+                abierto.horaSalida =
+                    horaActual;
+
+                const [
+                    h1,
+                    m1,
+                    s1
+                ] =
+                    abierto
+                        .horaEntrada
+                        .split(":")
+                        .map(Number);
+
+                const [
+                    h2,
+                    m2,
+                    s2
+                ] =
+                    horaActual
+                        .split(":")
+                        .map(Number);
+
+                let diff =
+                    (
+                        h2 * 3600 +
+                        m2 * 60 +
+                        s2
+                    ) -
+                    (
+                        h1 * 3600 +
+                        m1 * 60 +
+                        s1
+                    );
+
+                if (diff < 0)
+                    diff +=
+                        24 * 3600;
+
+                abierto.segundosLaborados =
+                    diff;
+
+                const h =
+                    Math.floor(
+                        diff / 3600
+                    );
+
+                const m =
+                    Math.floor(
+                        (diff % 3600) /
+                        60
+                    );
+
+                const s =
+                    diff % 60;
+
+                abierto.tiempoLaborado =
+                    `${h > 0 ? h + "h " : ""}${m}m ${s}s`;
+
+                try {
+
+                    const {
+                        doc,
+                        updateDoc
+                    } = window.fsModule;
+
+                    await updateDoc(
+                        doc(
+                            window.db,
+                            "registros",
+                            abierto.idDoc
+                        ),
+                        {
+                            fechaSalida:
+                                fechaActual,
+
+                            horaSalida:
+                                horaActual,
+
+                            segundosLaborados:
+                                diff,
+
+                            tiempoLaborado:
+                                abierto.tiempoLaborado
+                        }
+                    );
+
+                    guardarLocal();
+
+                    ocultarModulosJornada();
+
+                    cambiarVista(
+                        "fichar"
+                    );
+
+                    document.getElementById(
+                        "bitacora-id-emp"
+                    ).value = "";
+
+                    mostrarPopupResultado(
+                        "¡Salida Registrada!",
+                        `
+                        Colaborador:
+                        <strong>
+                            ${escapeHTML(empleado.nombre)}
+                        </strong>
+                        <br>
+                        Tiempo:
+                        <strong>
+                            ${abierto.tiempoLaborado}
+                        </strong>
+                        `,
+                        true
+                    );
+
+                } catch (error) {
+
+                    console.error(error);
+
+                    mostrarPopupResultado(
+                        "Error",
+                        "No se pudo actualizar la salida.",
+                        false
+                    );
+
+                }
+
+            }
+
+            limpiarInputFichar();
+
+        }
+
+        function limpiarInputFichar() {
+
+            document.getElementById(
+                "input-nfc-id"
+            ).value = "";
+
+        }
+
+        /* =========================================================
+           BITÁCORA + STORAGE
+           ========================================================= */
+
+        async function guardarTareaBitacora() {
+
+            const idEmp =
+                document
+                    .getElementById(
+                        "bitacora-id-emp"
+                    )
+                    .value
+                    .trim()
+                    .toUpperCase();
+
+            const proyecto =
+                document.getElementById(
+                    "bitacora-proyecto"
+                ).value;
+
+            const titulo =
+                document
+                    .getElementById(
+                        "bitacora-titulo"
+                    )
+                    .value
+                    .trim();
+
+            const desc =
+                document
+                    .getElementById(
+                        "bitacora-desc"
+                    )
+                    .value
+                    .trim();
+
+            const estado =
+                document.getElementById(
+                    "bitacora-estado"
+                ).value;
+
+            const tareaVinculadaId =
+                document.getElementById(
+                    "bitacora-vincular-tarea"
+                ).value;
+
+            const inputFile =
+                document.getElementById(
+                    "bitacora-foto"
+                );
+
+            const msg =
+                document.getElementById(
+                    "mensaje-bitacora"
+                );
+
+            if (!idEmp || !titulo) {
+
+                mostrarAlerta(
+                    msg,
+                    "Ingresa tu ID y el título de la actividad.",
+                    "error"
+                );
+
+                return;
+            }
+
+            const empleado =
+                empleados.find(
+                    e =>
+                        String(e.id)
+                            .toUpperCase() === idEmp ||
+                        String(e.nfc)
+                            .toUpperCase() === idEmp
+                );
+
+            if (!empleado) {
+
+                mostrarAlerta(
+                    msg,
+                    "ID de colaborador no encontrado.",
+                    "error"
+                );
+
+                return;
+            }
+
+            try {
+
+                let fotoURL = null;
+
+                /*
+                 * FOTO:
+                 *
+                 * Se sube a Firebase Storage.
+                 */
+
+                if (
+                    inputFile.files &&
+                    inputFile.files[0]
+                ) {
+
+                    const archivo =
+                        inputFile.files[0];
+
+                    if (
+                        !archivo.type.startsWith(
+                            "image/"
+                        )
+                    ) {
+
+                        throw new Error(
+                            "El archivo debe ser una imagen."
+                        );
+
+                    }
+
+                    /*
+                     * Limitar tamaño a 8 MB.
+                     */
+
+                    if (
+                        archivo.size >
+                        8 * 1024 * 1024
+                    ) {
+
+                        throw new Error(
+                            "La imagen no puede superar 8 MB."
+                        );
+
+                    }
+
+                    const nombreArchivo =
+                        `bitacora/${EMPRESA_UNICA.id}/${Date.now()}_${sanitizarNombreArchivo(archivo.name)}`;
+
+                    const storageRef =
+                        window.storageModule.ref(
+                            window.storage,
+                            nombreArchivo
+                        );
+
+                    await window.storageModule.uploadBytes(
+                        storageRef,
+                        archivo
+                    );
+
+                    fotoURL =
+                        await window.storageModule.getDownloadURL(
+                            storageRef
+                        );
+
+                }
+
+                const ahora =
+                    new Date();
+
+                const fechaHora =
+                    new Intl.DateTimeFormat(
+                        "es-MX",
+                        {
+                            timeZone:
+                                "America/Mexico_City",
+
+                            dateStyle:
+                                "short",
+
+                            timeStyle:
+                                "medium"
+                        }
+                    ).format(ahora);
+
+                const nuevaBitacora = {
+
+                    fechaHora,
+
+                    timestamp:
+                        ahora.getTime(),
+
+                    nombreEmpleado:
+                        empleado.nombre,
+
+                    idEmpleado:
+                        empleado.id,
+
+                    proyecto,
+
+                    titulo,
+
+                    desc,
+
+                    estado,
+
+                    foto:
+                        fotoURL,
+
+                    empresaId:
+                        EMPRESA_UNICA.id
+
+                };
+
+                const {
+                    collection,
+                    addDoc
+                } = window.fsModule;
+
+                const ref =
+                    await addDoc(
+                        collection(
+                            window.db,
+                            "bitacoraTareas"
+                        ),
+                        nuevaBitacora
+                    );
+
+                nuevaBitacora.idDoc =
+                    ref.id;
+
+                bitacoraTareas.unshift(
+                    nuevaBitacora
+                );
+
+                guardarLocal();
+
+                /*
+                 * Si la tarea fue completada,
+                 * la eliminamos del tablero.
+                 */
+
+                if (
+                    tareaVinculadaId &&
+                    estado === "Completado"
+                ) {
+
+                    const tarea =
+                        tareasSemanales.find(
+                            t =>
+                                String(t.id) ===
+                                String(
+                                    tareaVinculadaId
+                                )
+                        );
+
+                    if (
+                        tarea &&
+                        tarea.idDoc
+                    ) {
+
+                        const {
+                            doc,
+                            deleteDoc
+                        } =
+                            window.fsModule;
+
+                        await deleteDoc(
+                            doc(
+                                window.db,
+                                "tareasSemanales",
+                                tarea.idDoc
+                            )
+                        );
+
+                    }
+
+                    tareasSemanales =
+                        tareasSemanales.filter(
+                            t =>
+                                String(t.id) !==
+                                String(
+                                    tareaVinculadaId
+                                )
+                        );
+
+                    guardarLocal();
+
+                }
+
+                mostrarAlerta(
+                    msg,
+                    "¡Actividad registrada correctamente!",
+                    "exito"
+                );
+
+                document.getElementById(
+                    "bitacora-titulo"
+                ).value = "";
+
+                document.getElementById(
+                    "bitacora-desc"
+                ).value = "";
+
+                document.getElementById(
+                    "bitacora-vincular-tarea"
+                ).value = "";
+
+                inputFile.value = "";
+
+                cargarOpcionesTareasEnBitacora();
+
+                renderizarBitacoraRecientes();
+
+                renderizarTableroTareasSemanales();
+
+            } catch (error) {
+
+                console.error(error);
+
+                mostrarAlerta(
+                    msg,
+                    error.message ||
+                    "No se pudo guardar la actividad.",
+                    "error"
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           NFC
+           ========================================================= */
+
+        async function activarNfcReal() {
+
+            if (!("NDEFReader" in window)) {
+
+                alert(
+                    "Este navegador no soporta Web NFC."
+                );
+
+                return;
+            }
+
+            try {
+
+                const ndef =
+                    new NDEFReader();
+
+                await ndef.scan();
+
+                alert(
+                    "Lector NFC activado. Acerque la tarjeta."
+                );
+
+                ndef.onreading =
+                    event => {
+
+                        const decoder =
+                            new TextDecoder();
+
+                        for (
+                            const record of
+                            event.message.records
+                        ) {
+
+                            const valor =
+                                decoder
+                                    .decode(
+                                        record.data
+                                    )
+                                    .trim()
+                                    .toUpperCase();
+
+                            document.getElementById(
+                                "input-nfc-id"
+                            ).value =
+                                valor;
+
+                            fichar(
+                                "entrada"
+                            );
+
+                        }
+
+                    };
+
+            } catch (error) {
+
+                alert(
+                    "Error al iniciar NFC: " +
+                    error.message
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           QR
+           ========================================================= */
+
+        function abrirEscannerQR() {
+
+            document
+                .getElementById(
+                    "modal-qr"
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+            if (!html5QrCode) {
+
+                html5QrCode =
+                    new Html5Qrcode(
+                        "reader"
+                    );
+
+            }
+
+            const config = {
+
+                fps: 10,
+
+                qrbox: {
+                    width: 250,
+                    height: 250
+                }
+
+            };
+
+            html5QrCode.start(
+
+                {
+                    facingMode:
+                        "environment"
+                },
+
+                config,
+
+                decodedText => {
+
+                    document.getElementById(
+                        "input-nfc-id"
+                    ).value =
+                        decodedText
+                            .trim()
+                            .toUpperCase();
+
+                    cerrarEscannerQR();
+
+                    fichar(
+                        "entrada"
+                    );
+
+                },
+
+                () => {}
+
+            ).catch(
+                error => {
+
+                    alert(
+                        "No se pudo iniciar la cámara: " +
+                        error
+                    );
+
+                    cerrarEscannerQR();
+
+                }
+            );
+
+        }
+
+        function cerrarEscannerQR() {
+
+            if (
+                html5QrCode &&
+                html5QrCode.isScanning
+            ) {
+
+                html5QrCode.stop()
+                    .then(
+                        () => {
+
+                            document
+                                .getElementById(
+                                    "modal-qr"
+                                )
+                                .classList.add(
+                                    "oculto"
+                                );
+
+                        }
+                    )
+                    .catch(
+                        () => {
+
+                            document
+                                .getElementById(
+                                    "modal-qr"
+                                )
+                                .classList.add(
+                                    "oculto"
+                                );
+
+                        }
+                    );
+
+            } else {
+
+                document
+                    .getElementById(
+                        "modal-qr"
+                    )
+                    .classList.add(
+                        "oculto"
+                    );
+
+            }
+
+        }
+
+        /* =========================================================
+           VISTAS
+           ========================================================= */
+
+        function mostrarModulosJornada() {
+
+            document
+                .getElementById(
+                    "btn-tab-bitacora"
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+            document
+                .getElementById(
+                    "btn-tab-tareas"
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+        }
+
+        function ocultarModulosJornada() {
+
+            document
+                .getElementById(
+                    "btn-tab-bitacora"
+                )
+                .classList.add(
+                    "oculto"
+                );
+
+            document
+                .getElementById(
+                    "btn-tab-tareas"
+                )
+                .classList.add(
+                    "oculto"
+                );
+
+        }
+
+        function cambiarVista(vista) {
+
+            [
+                "vista-fichar",
+                "vista-bitacora",
+                "vista-tareas",
+                "vista-admin"
+            ]
+            .forEach(
+                id =>
+                    document
+                        .getElementById(id)
+                        .classList.add(
+                            "oculto"
+                        )
+            );
+
+            [
+                "btn-tab-fichar",
+                "btn-tab-bitacora",
+                "btn-tab-tareas",
+                "btn-tab-admin"
+            ]
+            .forEach(
+                id =>
+                    document
+                        .getElementById(id)
+                        .classList.remove(
+                            "active"
+                        )
+            );
+
+            const mapa = {
+
+                fichar: [
+                    "vista-fichar",
+                    "btn-tab-fichar"
+                ],
+
+                bitacora: [
+                    "vista-bitacora",
+                    "btn-tab-bitacora"
+                ],
+
+                tareas: [
+                    "vista-tareas",
+                    "btn-tab-tareas"
+                ],
+
+                admin: [
+                    "vista-admin",
+                    "btn-tab-admin"
+                ]
+
+            };
+
+            if (!mapa[vista])
+                return;
+
+            const [
+                vistaId,
+                botonId
+            ] =
+                mapa[vista];
+
+            document
+                .getElementById(
+                    vistaId
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+            document
+                .getElementById(
+                    botonId
+                )
+                .classList.add(
+                    "active"
+                );
+
+            if (vista === "bitacora") {
+
+                cargarOpcionesTareasEnBitacora();
+
+                renderizarBitacoraRecientes();
+
+            }
+
+            if (vista === "tareas") {
+
+                renderizarTableroTareasSemanales();
+
+            }
+
+            if (vista === "admin") {
+
+                renderizarTodoAdmin();
+
+            }
+
+        }
+
+        /* =========================================================
+           TAREAS
+           ========================================================= */
+
+        function renderizarTableroTareasSemanales() {
+
+            const alta =
+                document.getElementById(
+                    "lista-tareas-alta"
+                );
+
+            const media =
+                document.getElementById(
+                    "lista-tareas-media"
+                );
+
+            const baja =
+                document.getElementById(
+                    "lista-tareas-baja"
+                );
+
+            alta.innerHTML = "";
+            media.innerHTML = "";
+            baja.innerHTML = "";
+
+            const columnas = {
+
+                Alta: alta,
+
+                Media: media,
+
+                Baja: baja
+
+            };
+
+            ["Alta","Media","Baja"]
+                .forEach(
+                    prioridad => {
+
+                        const tareas =
+                            tareasSemanales.filter(
+                                t =>
+                                    t.prioridad ===
+                                    prioridad
+                            );
+
+                        if (!tareas.length) {
+
+                            columnas[
+                                prioridad
+                            ].innerHTML =
+                                `
+                                <p style="font-size:.8rem;color:var(--text-muted);">
+                                    Sin tareas pendientes.
+                                </p>
+                                `;
+
+                        }
+
+                    }
+                );
+
+            tareasSemanales.forEach(
+                tarea => {
+
+                    const html = `
+
+                        <div class="tarjeta-tarea-semanal">
+
+                            <strong>
+                                ${escapeHTML(
+                                    tarea.titulo
+                                )}
+                            </strong>
+
+                            <small>
+                                📍 Zona:
+                                ${escapeHTML(
+                                    tarea.zona
+                                )}
+                            </small>
+
+                            ${
+                                tarea.desc
+                                ?
+                                `
+                                <p
+                                    style="
+                                    margin:4px 0 0;
+                                    font-size:.8rem;
+                                    color:var(--text-muted);
+                                    ">
+                                    ${escapeHTML(
+                                        tarea.desc
+                                    )}
+                                </p>
+                                `
+                                :
+                                ""
+                            }
+
+                        </div>
+
+                    `;
+
+                    if (
+                        columnas[
+                            tarea.prioridad
+                        ]
+                    ) {
+
+                        columnas[
+                            tarea.prioridad
+                        ].innerHTML += html;
+
+                    }
+
+                }
+            );
+
+        }
+
+        function cargarOpcionesTareasEnBitacora() {
+
+            const select =
+                document.getElementById(
+                    "bitacora-vincular-tarea"
+                );
+
+            select.innerHTML =
+                `
+                <option value="">
+                    -- Ninguna / Actividad libre --
+                </option>
+                `;
+
+            tareasSemanales.forEach(
+                tarea => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        tarea.id;
+
+                    const icon =
+                        tarea.prioridad === "Alta"
+                        ? "🔴"
+                        : tarea.prioridad === "Media"
+                        ? "🟡"
+                        : "🟢";
+
+                    option.textContent =
+                        `${icon} [${tarea.prioridad}] ${tarea.titulo} (${tarea.zona})`;
+
+                    select.appendChild(
+                        option
+                    );
+
+                }
+            );
+
+        }
+
+        function autoCompletarTareaSeleccionada(select) {
+
+            if (!select.value)
+                return;
+
+            const tarea =
+                tareasSemanales.find(
+                    t =>
+                        String(t.id) ===
+                        String(select.value)
+                );
+
+            if (!tarea)
+                return;
+
+            document.getElementById(
+                "bitacora-titulo"
+            ).value =
+                tarea.titulo;
+
+            document.getElementById(
+                "bitacora-desc"
+            ).value =
+                tarea.desc || "";
+
+            document.getElementById(
+                "bitacora-proyecto"
+            ).value =
+                tarea.zona;
+
+        }
+
+        /* =========================================================
+           BITÁCORA TABLA
+           ========================================================= */
+
+        function renderizarBitacoraRecientes() {
+
+            const tbody =
+                document
+                    .getElementById(
+                        "tabla-bitacora-recientes"
+                    )
+                    .querySelector(
+                        "tbody"
+                    );
+
+            tbody.innerHTML = "";
+
+            if (!bitacoraTareas.length) {
+
+                tbody.innerHTML =
+                    `
+                    <tr>
+                        <td colspan="6"
+                            style="text-align:center;color:var(--text-muted);">
+                            Sin tareas registradas.
+                        </td>
+                    </tr>
+                    `;
+
+                return;
+
+            }
+
+            bitacoraTareas
+                .slice(0,15)
+                .forEach(
+                    tarea => {
+
+                        const tr =
+                            document.createElement(
+                                "tr"
+                            );
+
+                        tr.innerHTML = `
+
+                            <td>
+                                <small style="color:var(--text-muted);">
+                                    ${escapeHTML(
+                                        tarea.fechaHora
+                                    )}
+                                </small>
+                            </td>
+
+                            <td>
+                                <strong>
+                                    ${escapeHTML(
+                                        tarea.nombreEmpleado
+                                    )}
+                                </strong>
+                            </td>
+
+                            <td>
+                                <span style="color:var(--primary);">
+                                    ${escapeHTML(
+                                        tarea.proyecto
+                                    )}
+                                </span>
+                            </td>
+
+                            <td>
+
+                                <strong>
+                                    ${escapeHTML(
+                                        tarea.titulo
+                                    )}
+                                </strong>
+
+                                <br>
+
+                                <small style="color:var(--text-muted);">
+                                    ${escapeHTML(
+                                        tarea.desc || ""
+                                    )}
+                                </small>
+
+                            </td>
+
+                            <td>
+
+                                ${
+                                    tarea.foto
+                                    ?
+                                    `
+                                    <img
+                                        src="${tarea.foto}"
+                                        class="preview-foto"
+                                        alt="Evidencia">
+                                    `
+                                    :
+                                    `
+                                    <small style="color:var(--text-muted);">
+                                        Sin foto
+                                    </small>
+                                    `
+                                }
+
+                            </td>
+
+                            <td>
+                                <strong>
+                                    ${escapeHTML(
+                                        tarea.estado
+                                    )}
+                                </strong>
+                            </td>
+
+                        `;
+
+                        tbody.appendChild(
+                            tr
+                        );
+
+                    }
+                );
+
+        }
+
+        /* =========================================================
+           ADMIN TABLAS
+           ========================================================= */
+
+        function renderizarAdmins() {
+
+            const tbody =
+                document
+                    .getElementById(
+                        "tabla-admins"
+                    )
+                    .querySelector(
+                        "tbody"
+                    );
+
+            tbody.innerHTML = "";
+
+            const esPrincipal =
+                adminSesionActiva &&
+                adminSesionActiva.jerarquia ===
+                "Principal";
+
+            cuentasAdmin.forEach(
+                (admin,index) => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+                    const puedeEliminar =
+                        esPrincipal &&
+                        admin.jerarquia !==
+                        "Principal";
+
+                    tr.innerHTML = `
+
+                        <td>
+                            <strong>
+                                ${escapeHTML(
+                                    admin.nombre
+                                )}
+                            </strong>
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                admin.puesto
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                admin.correo
+                            )}
+                        </td>
+
+                        <td>
+                            <small style="color:var(--primary);">
+                                ${escapeHTML(
+                                    admin.idFichar || "N/A"
+                                )}
+                                /
+                                ${escapeHTML(
+                                    admin.nfcFichar || "N/A"
+                                )}
+                            </small>
+                        </td>
+
+                        <td>
+                            <span class="badge-maxima">
+                                👑
+                                ${escapeHTML(
+                                    admin.jerarquia
+                                )}
+                            </span>
+                        </td>
+
+                        <td>
+
+                            <button
+                                class="btn-warning"
+                                style="padding:4px 8px;font-size:.75rem;"
+                                onclick="abrirModalEditar('admin',${index})">
+
+                                Editar
+
+                            </button>
+
+                            ${
+                                puedeEliminar
+                                ?
+                                `
+                                <button
+                                    class="btn-secondary"
+                                    style="padding:4px 8px;font-size:.75rem;"
+                                    onclick="eliminarAdmin(${index})">
+
+                                    Eliminar
+
+                                </button>
+                                `
+                                :
+                                ""
+                            }
+
+                        </td>
+
+                    `;
+
+                    tbody.appendChild(
+                        tr
+                    );
+
+                }
+            );
+
+        }
+
+        function renderizarTodoAdmin() {
+
+            renderizarAdmins();
+
+            /* ESTADÍSTICAS */
+
+            const stats =
+                document
+                    .getElementById(
+                        "tabla-estadisticas"
+                    )
+                    .querySelector(
+                        "tbody"
+                    );
+
+            stats.innerHTML = "";
+
+            empleados.forEach(
+                empleado => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+                    const datos =
+                        calcularEstadisticasEmpleado(
+                            empleado.id
+                        );
+
+                    tr.innerHTML = `
+
+                        <td>
+                            <strong>
+                                ${escapeHTML(
+                                    empleado.nombre
+                                )}
+                            </strong>
+                        </td>
+
+                        <td>
+                            ${formatearHoras(
+                                datos.horasSemana
+                            )}
+                        </td>
+
+                        <td>
+                            ${datos.diasAnio}
+                        </td>
+
+                        <td>
+                            ${formatearHoras(
+                                datos.horasAnio
+                            )}
+                        </td>
+
+                    `;
+
+                    stats.appendChild(
+                        tr
+                    );
+
+                }
+            );
+
+            /* BITÁCORA GLOBAL */
+
+            const bitAdmin =
+                document
+                    .getElementById(
+                        "tabla-admin-bitacora"
+                    )
+                    .querySelector(
+                        "tbody"
+                    );
+
+            bitAdmin.innerHTML = "";
+
+            bitacoraTareas.forEach(
+                tarea => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+                    tr.innerHTML = `
+
+                        <td>
+                            ${escapeHTML(
+                                tarea.fechaHora
+                            )}
+                        </td>
+
+                        <td>
+                            <strong>
+                                ${escapeHTML(
+                                    tarea.nombreEmpleado
+                                )}
+                            </strong>
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                tarea.proyecto
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                tarea.titulo
+                            )}
+                        </td>
+
+                        <td>
+
+                            ${
+                                tarea.foto
+                                ?
+                                `
+                                <img
+                                    src="${tarea.foto}"
+                                    class="preview-foto"
+                                    alt="Evidencia">
+                                `
+                                :
+                                `
+                                <small style="color:var(--text-muted);">
+                                    Sin foto
+                                </small>
+                                `
+                            }
+
+                        </td>
+
+                        <td>
+                            <strong>
+                                ${escapeHTML(
+                                    tarea.estado
+                                )}
+                            </strong>
+                        </td>
+
+                    `;
+
+                    bitAdmin.appendChild(
+                        tr
+                    );
+
+                }
+            );
+
+            /* HISTORIAL */
+
+            const historial =
+                document
+                    .getElementById(
+                        "tabla-historial"
+                    )
+                    .querySelector(
+                        "tbody"
+                    );
+
+            historial.innerHTML = "";
+
+            registros.forEach(
+                registro => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+                    tr.innerHTML = `
+
+                        <td>
+                            <strong>
+                                ${escapeHTML(
+                                    registro.nombre
+                                )}
+                            </strong>
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                registro.fechaEntrada
+                            )}
+                            -
+                            ${escapeHTML(
+                                registro.horaEntrada
+                            )}
+                        </td>
+
+                        <td>
+
+                            ${
+                                registro.fechaSalida
+                                ?
+                                `${escapeHTML(
+                                    registro.fechaSalida
+                                )} -
+                                ${escapeHTML(
+                                    registro.horaSalida
+                                )}`
+                                :
+                                `
+                                <span style="color:var(--success);">
+                                    En curso
+                                </span>
+                                `
+                            }
+
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                registro.tiempoLaborado
+                            )}
+                        </td>
+
+                    `;
+
+                    historial.appendChild(
+                        tr
+                    );
+
+                }
+            );
+
+            /* EMPLEADOS */
+
+            const tbodyEmp =
+                document
+                    .getElementById(
+                        "tabla-empleados"
+                    )
+                    .querySelector(
+                        "tbody"
+                    );
+
+            tbodyEmp.innerHTML = "";
+
+            empleados.forEach(
+                (empleado,index) => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+                    tr.innerHTML = `
+
+                        <td>
+                            ${escapeHTML(
+                                empleado.nombre
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                empleado.id
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                empleado.puesto
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                empleado.nfc
+                            )}
+                        </td>
+
+                        <td>
+
+                            <button
+                                class="btn-warning"
+                                style="padding:4px 8px;font-size:.75rem;"
+                                onclick="abrirModalEditar('empleado',${index})">
+
+                                Editar
+
+                            </button>
+
+                            <button
+                                class="btn-secondary"
+                                style="padding:4px 8px;font-size:.75rem;"
+                                onclick="eliminarEmpleado(${index})">
+
+                                Eliminar
+
+                            </button>
+
+                        </td>
+
+                    `;
+
+                    tbodyEmp.appendChild(
+                        tr
+                    );
+
+                }
+            );
+
+        }
+
+        /* =========================================================
+           ESTADÍSTICAS
+           ========================================================= */
+
+        function calcularEstadisticasEmpleado(id) {
+
+            const ahora =
+                new Date();
+
+            const inicioSemana =
+                new Date(ahora);
+
+            const dia =
+                inicioSemana.getDay();
+
+            const diferencia =
+                dia === 0
+                ? 6
+                : dia - 1;
+
+            inicioSemana.setDate(
+                inicioSemana.getDate() -
+                diferencia
+            );
+
+            inicioSemana.setHours(
+                0,0,0,0
+            );
+
+            let segundosSemana = 0;
+            let segundosAnio = 0;
+
+            const anioActual =
+                ahora.getFullYear();
+
+            const dias =
+                new Set();
+
+            registros
+                .filter(
+                    r =>
+                        r.idEmpleado === id &&
+                        r.segundosLaborados
+                )
+                .forEach(
+                    r => {
+
+                        const fecha =
+                            convertirFechaMX(
+                                r.fechaEntrada
+                            );
+
+                        if (!fecha)
+                            return;
+
+                        if (
+                            fecha.getFullYear() ===
+                            anioActual
+                        ) {
+
+                            segundosAnio +=
+                                Number(
+                                    r.segundosLaborados
+                                ) || 0;
+
+                            dias.add(
+                                r.fechaEntrada
+                            );
+
+                        }
+
+                        if (
+                            fecha >=
+                            inicioSemana
+                        ) {
+
+                            segundosSemana +=
+                                Number(
+                                    r.segundosLaborados
+                                ) || 0;
+
+                        }
+
+                    }
+                );
+
+            return {
+
+                horasSemana:
+                    segundosSemana / 3600,
+
+                horasAnio:
+                    segundosAnio / 3600,
+
+                diasAnio:
+                    dias.size
+
+            };
+
+        }
+
+        function formatearHoras(horas) {
+
+            return (
+                Math.round(
+                    horas * 10
+                ) / 10
+            ) + " h";
+
+        }
+
+        /* =========================================================
+           EDITAR
+           ========================================================= */
+
+        function abrirModalEditar(
+            tipo,
+            index
+        ) {
+
+            document.getElementById(
+                "edit-tipo"
+            ).value =
+                tipo;
+
+            document.getElementById(
+                "edit-id-doc"
+            ).value =
+                index;
+
+            if (tipo === "admin") {
+
+                const admin =
+                    cuentasAdmin[index];
+
+                document.getElementById(
+                    "modal-editar-titulo"
+                ).textContent =
+                    "Editar Administrador";
+
+                document.getElementById(
+                    "edit-nombre"
+                ).value =
+                    admin.nombre;
+
+                document.getElementById(
+                    "edit-puesto"
+                ).value =
+                    admin.puesto;
+
+                document.getElementById(
+                    "edit-correo"
+                ).value =
+                    admin.correo;
+
+                document.getElementById(
+                    "edit-pass"
+                ).value = "";
+
+                document.getElementById(
+                    "edit-id-fichar"
+                ).value =
+                    admin.idFichar || "";
+
+                document.getElementById(
+                    "edit-nfc"
+                ).value =
+                    admin.nfcFichar || "";
+
+                document.getElementById(
+                    "div-edit-correo"
+                ).style.display =
+                    "block";
+
+                document.getElementById(
+                    "div-edit-pass"
+                ).style.display =
+                    "block";
+
+            } else {
+
+                const empleado =
+                    empleados[index];
+
+                document.getElementById(
+                    "modal-editar-titulo"
+                ).textContent =
+                    "Editar Colaborador";
+
+                document.getElementById(
+                    "edit-nombre"
+                ).value =
+                    empleado.nombre;
+
+                document.getElementById(
+                    "edit-puesto"
+                ).value =
+                    empleado.puesto;
+
+                document.getElementById(
+                    "edit-id-fichar"
+                ).value =
+                    empleado.id;
+
+                document.getElementById(
+                    "edit-nfc"
+                ).value =
+                    empleado.nfc;
+
+                document.getElementById(
+                    "div-edit-correo"
+                ).style.display =
+                    "none";
+
+                document.getElementById(
+                    "div-edit-pass"
+                ).style.display =
+                    "none";
+
+            }
+
+            document
+                .getElementById(
+                    "modal-editar"
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+        }
+
+        function cerrarModalEditar() {
+
+            document
+                .getElementById(
+                    "modal-editar"
+                )
+                .classList.add(
+                    "oculto"
+                );
+
+        }
+
+        async function guardarEdicionModal() {
+
+            const tipo =
+                document.getElementById(
+                    "edit-tipo"
+                ).value;
+
+            const index =
+                Number(
+                    document.getElementById(
+                        "edit-id-doc"
+                    ).value
+                );
+
+            const nombre =
+                document.getElementById(
+                    "edit-nombre"
+                ).value
+                .trim();
+
+            const puesto =
+                document.getElementById(
+                    "edit-puesto"
+                ).value
+                .trim();
+
+            const nuevoId =
+                document.getElementById(
+                    "edit-id-fichar"
+                ).value
+                .trim()
+                .toUpperCase();
+
+            const nuevoNfc =
+                document.getElementById(
+                    "edit-nfc"
+                ).value
+                .trim()
+                .toUpperCase();
+
+            if (
+                !nombre ||
+                !nuevoId ||
+                !nuevoNfc
+            ) {
+
+                alert(
+                    "Completa los campos principales."
+                );
+
+                return;
+            }
+
+            try {
+
+                if (tipo === "admin") {
+
+                    const admin =
+                        cuentasAdmin[index];
+
+                    const nuevoCorreo =
+                        document.getElementById(
+                            "edit-correo"
+                        ).value
+                        .trim()
+                        .toLowerCase();
+
+                    const nuevaPass =
+                        document.getElementById(
+                            "edit-pass"
+                        ).value;
+
+                    const datosUpdate = {
+
+                        nombre,
+
+                        puesto,
+
+                        correo:
+                            nuevoCorreo,
+
+                        idFichar:
+                            nuevoId,
+
+                        nfcFichar:
+                            nuevoNfc
+
+                    };
+
+                    const {
+                        doc,
+                        updateDoc
+                    } =
+                        window.fsModule;
+
+                    await updateDoc(
+                        doc(
+                            window.db,
+                            "cuentasAdmin",
+                            admin.idDoc
+                        ),
+                        datosUpdate
+                    );
+
+                    /*
+                     * Si escribió nueva contraseña:
+                     *
+                     * Firebase permite cambiarla del usuario
+                     * actualmente autenticado.
+                     *
+                     * Para cambiar la contraseña de OTRO admin,
+                     * la opción correcta será una Cloud Function.
+                     */
+
+                    if (
+                        nuevaPass &&
+                        admin.uid ===
+                        window.auth.currentUser?.uid
+                    ) {
+
+                        await window.authModule.updatePassword(
+                            window.auth.currentUser,
+                            nuevaPass
+                        );
+
+                    }
+
+                    Object.assign(
+                        admin,
+                        datosUpdate
+                    );
+
+                    const empleado =
+                        empleados.find(
+                            e =>
+                                e.id ===
+                                admin.idFichar
+                        );
+
+                    if (empleado) {
+
+                        const antiguoId =
+                            empleado.id;
+
+                        empleado.id =
+                            nuevoId;
+
+                        empleado.nfc =
+                            nuevoNfc;
+
+                        empleado.nombre =
+                            nombre;
+
+                        empleado.puesto =
+                            `${puesto} (Admin)`;
+
+                        await updateDoc(
+                            doc(
+                                window.db,
+                                "empleados",
+                                empleado.idDoc
+                            ),
+                            {
+                                id:
+                                    nuevoId,
+
+                                nfc:
+                                    nuevoNfc,
+
+                                nombre,
+
+                                puesto:
+                                    `${puesto} (Admin)`
+                            }
+                        );
+
+                    }
+
+                } else {
+
+                    const empleado =
+                        empleados[index];
+
+                    const {
+                        doc,
+                        updateDoc
+                    } =
+                        window.fsModule;
+
+                    await updateDoc(
+                        doc(
+                            window.db,
+                            "empleados",
+                            empleado.idDoc
+                        ),
+                        {
+                            nombre,
+
+                            puesto,
+
+                            id:
+                                nuevoId,
+
+                            nfc:
+                                nuevoNfc
+                        }
+                    );
+
+                    empleado.nombre =
+                        nombre;
+
+                    empleado.puesto =
+                        puesto;
+
+                    empleado.id =
+                        nuevoId;
+
+                    empleado.nfc =
+                        nuevoNfc;
+
+                }
+
+                guardarLocal();
+
+                cerrarModalEditar();
+
+                renderizarTodoAdmin();
+
+                alert(
+                    "¡Cambios guardados correctamente!"
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                alert(
+                    "No se pudieron guardar los cambios: " +
+                    error.message
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           ELIMINAR ADMIN
+           ========================================================= */
+
+        async function eliminarAdmin(index) {
+
+            if (
+                !adminSesionActiva ||
+                adminSesionActiva.jerarquia !==
+                "Principal"
+            ) {
+
+                alert(
+                    "Acceso denegado."
+                );
+
+                return;
+            }
+
+            const admin =
+                cuentasAdmin[index];
+
+            if (
+                admin.jerarquia ===
+                "Principal"
+            ) {
+
+                alert(
+                    "No puedes eliminar al administrador principal."
+                );
+
+                return;
+            }
+
+            if (
+                !confirm(
+                    `¿Eliminar al administrador ${admin.nombre}?`
+                )
+            ) {
+
+                return;
+
+            }
+
+            try {
+
+                const {
+                    doc,
+                    deleteDoc
+                } =
+                    window.fsModule;
+
+                await deleteDoc(
+                    doc(
+                        window.db,
+                        "cuentasAdmin",
+                        admin.idDoc
+                    )
+                );
+
+                const empleado =
+                    empleados.find(
+                        e =>
+                            e.id ===
+                            admin.idFichar
+                    );
+
+                if (
+                    empleado &&
+                    empleado.idDoc
+                ) {
+
+                    await deleteDoc(
+                        doc(
+                            window.db,
+                            "empleados",
+                            empleado.idDoc
+                        )
+                    );
+
+                    empleados =
+                        empleados.filter(
+                            e =>
+                                e.idDoc !==
+                                empleado.idDoc
+                        );
+
+                }
+
+                cuentasAdmin.splice(
+                    index,
+                    1
+                );
+
+                guardarLocal();
+
+                renderizarTodoAdmin();
+
+            } catch (error) {
+
+                console.error(error);
+
+                alert(
+                    "No se pudo eliminar: " +
+                    error.message
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           ELIMINAR EMPLEADO
+           ========================================================= */
+
+        async function eliminarEmpleado(index) {
+
+            if (
+                !confirm(
+                    "¿Eliminar colaborador?"
+                )
+            )
+                return;
+
+            const empleado =
+                empleados[index];
+
+            try {
+
+                const {
+                    doc,
+                    deleteDoc
+                } =
+                    window.fsModule;
+
+                await deleteDoc(
+                    doc(
+                        window.db,
+                        "empleados",
+                        empleado.idDoc
+                    )
+                );
+
+                empleados.splice(
+                    index,
+                    1
+                );
+
+                guardarLocal();
+
+                renderizarTodoAdmin();
+
+            } catch (error) {
+
+                console.error(error);
+
+                alert(
+                    "No se pudo eliminar el empleado."
+                );
+
+            }
+
+        }
+
+        /* =========================================================
+           RESPALDO JSON
+           ========================================================= */
+
+        function exportarRespaldoJSON() {
+
+            const datos = {
+
+                empleados,
+
+                cuentasAdmin:
+                    cuentasAdmin.map(
+                        admin => {
+
+                            /*
+                             * Nunca exportamos contraseñas.
+                             */
+
+                            return {
+                                ...admin
+                            };
+
+                        }
+                    ),
+
+                registros,
+
+                bitacoraTareas,
+
+                tareasSemanales,
+
+                fechaRespaldo:
+                    new Date().toISOString()
+
+            };
+
+            const blob =
+                new Blob(
+                    [
+                        JSON.stringify(
+                            datos,
+                            null,
+                            2
+                        )
+                    ],
+                    {
+                        type:
+                            "application/json"
+                    }
+                );
+
+            const url =
+                URL.createObjectURL(
+                    blob
+                );
+
+            const a =
+                document.createElement(
+                    "a"
+                );
+
+            a.href = url;
+
+            a.download =
+                `respaldo_cdj_${new Date().toISOString().slice(0,10)}.json`;
+
+            document.body.appendChild(
+                a
+            );
+
+            a.click();
+
+            a.remove();
+
+            URL.revokeObjectURL(
+                url
+            );
+
+        }
+
+        function importarRespaldoJSON(event) {
+
+            const archivo =
+                event.target.files[0];
+
+            if (!archivo)
+                return;
+
+            const reader =
+                new FileReader();
+
+            reader.onload =
+                e => {
+
+                    try {
+
+                        const datos =
+                            JSON.parse(
+                                e.target.result
+                            );
+
+                        if (
+                            datos.empleados
+                        )
+                            empleados =
+                                datos.empleados;
+
+                        if (
+                            datos.registros
+                        )
+                            registros =
+                                datos.registros;
+
+                        if (
+                            datos.bitacoraTareas
+                        )
+                            bitacoraTareas =
+                                datos.bitacoraTareas;
+
+                        if (
+                            datos.tareasSemanales
+                        )
+                            tareasSemanales =
+                                datos.tareasSemanales;
+
+                        /*
+                         * NO restauramos contraseñas.
+                         */
+
+                        guardarLocal();
+
+                        alert(
+                            "Respaldo local restaurado. Los datos existentes en Firebase no se sobrescribieron automáticamente."
+                        );
+
+                        renderizarTodoAdmin();
+
+                    } catch (error) {
+
+                        alert(
+                            "JSON inválido: " +
+                            error.message
+                        );
+
+                    }
+
+                };
+
+            reader.readAsText(
+                archivo
+            );
+
+        }
+
+        /* =========================================================
+           CROQUIS
+           ========================================================= */
+
+        function abrirModalCroquis() {
+
+            document
+                .getElementById(
+                    "modal-croquis"
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+        }
+
+        function cerrarModalCroquis() {
+
+            document
+                .getElementById(
+                    "modal-croquis"
+                )
+                .classList.add(
+                    "oculto"
+                );
+
+        }
+
+        /* =========================================================
+           RESULTADO
+           ========================================================= */
+
+        function mostrarPopupResultado(
+            titulo,
+            htmlInfo,
+            exito
+        ) {
+
+            const tituloElemento =
+                document.getElementById(
+                    "modal-titulo"
+                );
+
+            tituloElemento.textContent =
+                titulo;
+
+            tituloElemento.style.color =
+                exito
+                ? "var(--success)"
+                : "var(--danger)";
+
+            document.getElementById(
+                "modal-texto-info"
+            ).innerHTML =
+                htmlInfo;
+
+            document
+                .getElementById(
+                    "modal-resultado"
+                )
+                .classList.remove(
+                    "oculto"
+                );
+
+        }
+
+        function cerrarModalResultado() {
+
+            document
+                .getElementById(
+                    "modal-resultado"
+                )
+                .classList.add(
+                    "oculto"
+                );
+
+            document
+                .getElementById(
+                    "input-nfc-id"
+                )
+                .focus();
+
+        }
+
+        /* =========================================================
+           ALERTAS
+           ========================================================= */
+
+        function mostrarAlerta(
+            elemento,
+            texto,
+            tipo
+        ) {
+
+            elemento.textContent =
+                texto;
+
+            elemento.className =
+                `alerta ${tipo}`;
+
+            elemento.classList.remove(
+                "oculto"
+            );
+
+            setTimeout(
+                () =>
+                    elemento.classList.add(
+                        "oculto"
+                    ),
+                5000
+            );
+
+        }
+
+        /* =========================================================
+           TEMA
+           ========================================================= */
+
+        const themeToggleBtn =
+            document.getElementById(
+                "themeToggle"
+            );
+
+        const bodyElement =
+            document.body;
+
+        const currentTheme =
+            localStorage.getItem(
+                "theme"
+            );
+
+        if (
+            currentTheme ===
+            "light"
+        ) {
+
+            bodyElement.classList.add(
+                "light-mode"
+            );
+
+            themeToggleBtn.textContent =
+                "🌙";
+
+        } else {
+
+            themeToggleBtn.textContent =
+                "☀️";
+
+        }
+
+        themeToggleBtn.addEventListener(
+            "click",
+            () => {
+
+                bodyElement.classList.toggle(
+                    "light-mode"
+                );
+
+                if (
+                    bodyElement.classList.contains(
+                        "light-mode"
+                    )
+                ) {
+
+                    themeToggleBtn.textContent =
+                        "🌙";
+
+                    localStorage.setItem(
+                        "theme",
+                        "light"
+                    );
+
+                } else {
+
+                    themeToggleBtn.textContent =
+                        "☀️";
+
+                    localStorage.setItem(
+                        "theme",
+                        "dark"
+                    );
+
+                }
+
+            }
+        );
+
+        /* =========================================================
+           RELOJ CDMX
+           ========================================================= */
+
+        function actualizarReloj() {
+
+            const hora =
+                new Intl.DateTimeFormat(
+                    "es-MX",
+                    {
+                        timeZone:
+                            "America/Mexico_City",
+
+                        hour:
+                            "2-digit",
+
+                        minute:
+                            "2-digit",
+
+                        second:
+                            "2-digit",
+
+                        hour12:
+                            false
+                    }
+                ).format(
+                    new Date()
+                );
+
+            document.getElementById(
+                "reloj"
+            ).textContent =
+                hora;
+
+        }
+
+        setInterval(
+            actualizarReloj,
+            1000
+        );
+
+        actualizarReloj();
+
+        /* =========================================================
+           UTILIDADES
+           ========================================================= */
+
+        function escapeHTML(valor) {
+
+            if (
+                valor === null ||
+                valor === undefined
+            )
+                return "";
+
+            return String(valor)
+                .replace(
+                    /&/g,
+                    "&amp;"
+                )
+                .replace(
+                    /</g,
+                    "&lt;"
+                )
+                .replace(
+                    />/g,
+                    "&gt;"
+                )
+                .replace(
+                    /"/g,
+                    "&quot;"
+                )
+                .replace(
+                    /'/g,
+                    "&#039;"
+                );
+
+        }
+
+        function sanitizarNombreArchivo(nombre) {
+
+            return String(nombre)
+                .replace(
+                    /[^a-zA-Z0-9._-]/g,
+                    "_"
+                );
+
+        }
+
+        function traducirErrorFirebase(error) {
+
+            const codigo =
+                error?.code || "";
+
+            const mensajes = {
+
+                "auth/email-already-in-use":
+                    "El correo ya está registrado.",
+
+                "auth/invalid-email":
+                    "El correo no es válido.",
+
+                "auth/weak-password":
+                    "La contraseña debe tener al menos 6 caracteres.",
+
+                "auth/invalid-credential":
+                    "Credenciales incorrectas.",
+
+                "auth/user-not-found":
+                    "Usuario no encontrado.",
+
+                "auth/wrong-password":
+                    "Contraseña incorrecta.",
+
+                "permission-denied":
+                    "Firebase rechazó la operación por permisos.",
+
+                "storage/unauthorized":
+                    "No tienes permisos para subir la fotografía.",
+
+                "storage/canceled":
+                    "La subida de la fotografía fue cancelada."
+
+            };
+
+            return (
+                mensajes[codigo] ||
+                error?.message ||
+                "Ocurrió un error inesperado."
+            );
+
+        }
+
+        function convertirFechaMX(texto) {
+
+            /*
+             * El formato generado por es-MX puede variar.
+             * Para estadísticas sencillas usamos Date cuando
+             * sea posible.
+             */
+
+            const partes =
+                String(texto || "")
+                    .split("/");
+
+            if (
+                partes.length !== 3
+            )
+                return null;
+
+            const dia =
+                Number(
+                    partes[0]
+                );
+
+            const mes =
+                Number(
+                    partes[1]
+                ) - 1;
+
+            let anio =
+                Number(
+                    partes[2]
+                );
+
+            if (
+                anio < 100
+            )
+                anio += 2000;
+
+            const fecha =
+                new Date(
+                    anio,
+                    mes,
+                    dia
+                );
+
+            return isNaN(
+                fecha.getTime()
+            )
+            ? null
+            : fecha;
+
+        }
+
+        /* =========================================================
+           MODALES GENÉRICOS
+           ========================================================= */
+
+        /*
+         * Cerrar modales tocando fuera.
+         */
+
+        document
+            .querySelectorAll(
+                ".modal"
+            )
+            .forEach(
+                modal => {
+
+                    modal.addEventListener(
+                        "click",
+                        event => {
+
+                            if (
+                                event.target ===
+                                modal
+                            ) {
+
+                                modal.classList.add(
+                                    "oculto"
+                                );
+
+                            }
+
+                        }
+                    );
+
+                }
+            );
+
+    </script>
+
+</body>
+</html>            --bg-card: #ffffff;
             --bg-input: #e5e7eb;
             --border-color: #d1d5db;
             --primary: #2563eb;
