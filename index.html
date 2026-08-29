@@ -415,10 +415,29 @@
             border-radius: 8px;
             margin-bottom: 10px;
             font-size: 0.88rem;
+            position: relative;
         }
 
         .tarjeta-tarea-semanal strong { display: block; margin-bottom: 4px; }
         .tarjeta-tarea-semanal small { color: var(--text-muted); display: block; margin-bottom: 6px; }
+
+        .btn-eliminar-tarea-discreto {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--danger);
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            float: right;
+            transition: background 0.2s, border-color 0.2s;
+            margin-top: -2px;
+        }
+
+        .btn-eliminar-tarea-discreto:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: var(--danger);
+        }
 
         .modal {
             position: fixed;
@@ -479,6 +498,18 @@
             border: 1px solid var(--border-color);
             margin-top: 5px;
         }
+
+        .preview-foto-tarea {
+            width: 100%;
+            max-height: 140px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-top: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .preview-foto-tarea:hover { opacity: 0.85; }
     </style>
 </head>
 <body>
@@ -923,9 +954,13 @@
                     <option value="Repisas">Repisas</option>
                 </select>
             </div>
-            <div style="margin-bottom: 15px;">
+            <div style="margin-bottom: 10px;">
                 <label>Descripción / Indicaciones:</label>
                 <textarea id="admin-tarea-desc" rows="3" placeholder="Detalles de la asignación..."></textarea>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Imagen de Referencia (Opcional):</label>
+                <input type="file" id="admin-tarea-foto" accept="image/*">
             </div>
 
             <div style="display: flex; gap: 10px;">
@@ -933,6 +968,16 @@
                 <button class="btn-secondary" style="flex: 1;" onclick="cerrarModalAsignarTarea()">Cancelar</button>
             </div>
             <div id="mensaje-admin-tarea" class="alerta oculto"></div>
+        </div>
+    </div>
+
+    <!-- MODAL AMPLIAR IMAGEN DE TAREA -->
+    <div id="modal-ampliar-imagen" class="modal oculto" onclick="cerrarModalAmpliarImagen()">
+        <div class="modal-content" style="max-width: 90%; background: transparent; border: none; padding: 0;" onclick="event.stopPropagation()">
+            <img id="imagen-ampliada-src" src="" alt="Imagen ampliada" style="max-width: 100%; max-height: 85vh; border-radius: 8px; box-shadow: 0 20px 25px rgba(0,0,0,0.5); object-fit: contain;">
+            <div style="margin-top: 15px;">
+                <button class="btn-secondary" style="padding: 8px 20px;" onclick="cerrarModalAmpliarImagen()">Cerrar Imagen</button>
+            </div>
         </div>
     </div>
 
@@ -1156,8 +1201,10 @@
         }
 
         function ocultarModulosJornada() {
-            document.getElementById('btn-tab-bitacora').classList.add('oculto');
-            document.getElementById('btn-tab-tareas').classList.add('oculto');
+            if (!adminSesionActiva) {
+                document.getElementById('btn-tab-bitacora').classList.add('oculto');
+                document.getElementById('btn-tab-tareas').classList.add('oculto');
+            }
         }
 
         function cambiarVista(vista) {
@@ -1296,6 +1343,14 @@
         function abrirModalCroquis() { document.getElementById('modal-croquis').classList.remove('oculto'); }
         function cerrarModalCroquis() { document.getElementById('modal-croquis').classList.add('oculto'); }
 
+        function ampliarImagenTarea(src) {
+            document.getElementById('imagen-ampliada-src').src = src;
+            document.getElementById('modal-ampliar-imagen').classList.remove('oculto');
+        }
+        function cerrarModalAmpliarImagen() {
+            document.getElementById('modal-ampliar-imagen').classList.add('oculto');
+        }
+
         async function guardarNuevoAdminDesdePanel() {
             const nombre = document.getElementById('admin-alta-nombre').value.trim();
             const puesto = document.getElementById('admin-alta-puesto').value.trim();
@@ -1396,6 +1451,7 @@
             const prioridad = document.getElementById('admin-tarea-prioridad').value;
             const zona = document.getElementById('admin-tarea-zona').value;
             const desc = document.getElementById('admin-tarea-desc').value.trim();
+            const inputFile = document.getElementById('admin-tarea-foto');
             const msg = document.getElementById('mensaje-admin-tarea');
 
             if (!titulo) {
@@ -1403,27 +1459,69 @@
                 return;
             }
 
-            const nuevaTareaObj = { id: Date.now(), titulo, prioridad, zona, desc, empresaId: EMPRESA_UNICA.id };
+            const procesarPublicacion = async (imagenBase64) => {
+                const nuevaTareaObj = { 
+                    id: Date.now(), 
+                    titulo, 
+                    prioridad, 
+                    zona, 
+                    desc, 
+                    imagenReferencia: imagenBase64 || null, 
+                    empresaId: EMPRESA_UNICA.id 
+                };
 
-            if (window.firebaseEnabled) {
-                try {
-                    const { collection, addDoc } = window.fsModule;
-                    const docRef = await addDoc(collection(window.db, "tareasSemanales"), nuevaTareaObj);
-                    nuevaTareaObj.idDoc = docRef.id;
-                } catch (e) { console.warn(e); }
+                if (window.firebaseEnabled) {
+                    try {
+                        const { collection, addDoc } = window.fsModule;
+                        const docRef = await addDoc(collection(window.db, "tareasSemanales"), nuevaTareaObj);
+                        nuevaTareaObj.idDoc = docRef.id;
+                    } catch (e) { console.warn(e); }
+                }
+
+                tareasSemanales.push(nuevaTareaObj);
+                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+                mostrarAlerta(msg, "¡Tarea asignada con éxito!", "exito");
+
+                document.getElementById('admin-tarea-titulo').value = '';
+                document.getElementById('admin-tarea-desc').value = '';
+                document.getElementById('admin-tarea-foto').value = '';
+
+                setTimeout(() => {
+                    cerrarModalAsignarTarea();
+                    renderizarTableroTareasSemanales();
+                }, 1200);
+            };
+
+            if (inputFile.files && inputFile.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    procesarPublicacion(e.target.result);
+                };
+                reader.readAsDataURL(inputFile.files[0]);
+            } else {
+                procesarPublicacion(null);
+            }
+        }
+
+        async function eliminarTareaSemanal(idTarea) {
+            if (!adminSesionActiva) {
+                alert("Acción reservada únicamente para administradores.");
+                return;
             }
 
-            tareasSemanales.push(nuevaTareaObj);
-            localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-            mostrarAlerta(msg, "¡Tarea asignada con éxito!", "exito");
+            if (confirm("¿Estás seguro de eliminar esta tarea del tablero semanal?")) {
+                const tareaMatch = tareasSemanales.find(t => t.id == idTarea);
+                if (tareaMatch && window.firebaseEnabled && tareaMatch.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "tareasSemanales", tareaMatch.idDoc));
+                    } catch (e) { console.warn(e); }
+                }
 
-            document.getElementById('admin-tarea-titulo').value = '';
-            document.getElementById('admin-tarea-desc').value = '';
-
-            setTimeout(() => {
-                cerrarModalAsignarTarea();
+                tareasSemanales = tareasSemanales.filter(t => t.id != idTarea);
+                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
                 renderizarTableroTareasSemanales();
-            }, 1200);
+            }
         }
 
         function verificarAdmin() {
@@ -1439,7 +1537,14 @@
                 document.getElementById('admin-email').value = '';
                 document.getElementById('admin-pass').value = '';
                 document.getElementById('label-admin-actual').textContent = `Sesión: ${adminSesionActiva.nombre} (${adminSesionActiva.jerarquia})`;
+                
+                mostrarModulosJornada();
+                if (adminSesionActiva.idFichar) {
+                    document.getElementById('bitacora-id-emp').value = adminSesionActiva.idFichar;
+                }
+
                 renderizarTodoAdmin();
+                renderizarTableroTareasSemanales(); // Refrescar para mostrar botones de borrar si el admin está viendo el tablero
             } else {
                 mostrarAlerta(document.getElementById('mensaje-login'), "Correo o contraseña incorrectos.", "error");
             }
@@ -1449,6 +1554,9 @@
             adminSesionActiva = null;
             document.getElementById('admin-panel').classList.add('oculto');
             document.getElementById('admin-login-box').classList.remove('oculto');
+            
+            ocultarModulosJornada();
+            renderizarTableroTareasSemanales(); // Ocultar botones de borrar
         }
 
         function renderizarTableroTareasSemanales() {
@@ -1463,11 +1571,15 @@
             if (tareasSemanales.filter(t => t.prioridad === 'Baja').length === 0) colBaja.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted);">Sin tareas pendientes.</p>`;
 
             tareasSemanales.forEach(t => {
+                const botonEliminarHtml = adminSesionActiva ? `<button class="btn-eliminar-tarea-discreto" onclick="eliminarTareaSemanal(${t.id})" title="Eliminar Tarea">🗑️ Borrar</button>` : '';
+                
                 const cardHtml = `
                     <div class="tarjeta-tarea-semanal">
+                        ${botonEliminarHtml}
                         <strong>${t.titulo}</strong>
                         <small>📍 Zona: ${t.zona}</small>
-                        ${t.desc ? `<p style="margin:4px 0 0 0; font-size:0.8rem; color:var(--text-muted);">${t.desc}</p>` : ''}
+                        ${t.desc ? `<p style="margin:4px 0 6px 0; font-size:0.8rem; color:var(--text-muted);">${t.desc}</p>` : ''}
+                        ${t.imagenReferencia ? `<img src="${t.imagenReferencia}" class="preview-foto-tarea" alt="Referencia de tarea" onclick="ampliarImagenTarea('${t.imagenReferencia}')" title="Clic para ampliar imagen">` : ''}
                     </div>
                 `;
                 if (t.prioridad === 'Alta') colAlta.innerHTML += cardHtml;
@@ -1684,10 +1796,12 @@
                 }
 
                 ocultarModulosJornada();
-                cambiarVista('fichar');
-                document.getElementById('bitacora-id-emp').value = '';
+                if (!adminSesionActiva) {
+                    cambiarVista('fichar');
+                    document.getElementById('bitacora-id-emp').value = '';
+                }
 
-                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo: <strong>${abierto.tiempoLaborado}</strong><br><br><small style="color:var(--text-muted);">Módulos de trabajo bloqueados.</small>`, true);
+                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo: <strong>${abierto.tiempoLaborado}</strong>`, true);
             }
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
