@@ -558,12 +558,8 @@
         </div>
         
         <div class="btns">
-            <button class="btn-primary" onclick="fichar('entrada')">Entrada</button>
-            <button class="btn-secondary" onclick="fichar('salida')">Salida</button>
-        </div>
-        
-        <div style="margin-top: 15px;">
-            <button class="btn-info" onclick="activarNfcReal()" style="width: 100%; font-size: 0.85rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Activar Lector NFC Físico</button>
+            <button class="btn-primary" onclick="ficharNFCConAccion('entrada')">Entrada</button>
+            <button class="btn-secondary" onclick="ficharNFCConAccion('salida')">Salida</button>
         </div>
     </section>
 
@@ -1574,7 +1570,7 @@
             if (tareasSemanales.filter(t => t.prioridad === 'Baja').length === 0) colBaja.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted);">Sin tareas pendientes.</p>`;
 
             tareasSemanales.forEach(t => {
-                const botonEliminarHtml = adminSesionActiva ? `<button class="btn-eliminar-tarea-discreto" onclick="eliminarTareaSemanal(${t.id})" title="Eliminar Tarea">🗑️ Borrar</button>` : '';
+                const botonEliminarHtml = adminSesionActiva ? `<button class="btn-eliminar-tarea-discreto" onclick="eliminarTareaSemanal(${t.id})" title="Eliminar Tarea">🗑️️ Borrar</button>` : '';
                 
                 const cardHtml = `
                     <div class="tarjeta-tarea-semanal">
@@ -1694,21 +1690,53 @@
             }
         }
 
-        async function activarNfcReal() {
-            if ('NDEFReader' in window) {
-                try {
-                    const ndef = new NDEFReader();
-                    await ndef.scan();
-                    alert("Lector NFC activado. Acerque su tarjeta...");
-                    ndef.onreading = event => {
-                        const decoder = new TextDecoder();
-                        for (const record of event.message.records) {
-                            document.getElementById('input-nfc-id').value = decoder.decode(record.data).trim().toUpperCase();
-                            fichar('entrada');
+        async function ficharNFCConAccion(tipo) {
+            if (!('NDEFReader' in window)) {
+                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, ingresa el ID manualmente.");
+                fichar(tipo);
+                return;
+            }
+
+            try {
+                const ndef = new NDEFReader();
+                await ndef.scan();
+                alert(`Lector NFC activado para ${tipo.toUpperCase()}. Acerque su tarjeta...`);
+                
+                ndef.onreading = event => {
+                    const decoder = new TextDecoder();
+                    for (const record of event.message.records) {
+                        const nfcValue = decoder.decode(record.data).trim().toUpperCase();
+                        document.getElementById('input-nfc-id').value = nfcValue;
+                        
+                        // Ejecutar entrada o salida inmediatamente tras la lectura
+                        fichar(tipo);
+                        
+                        // Si es salida, cerrar sesión de inmediato limpiando cualquier estado activo
+                        if (tipo === 'salida') {
+                            setTimeout(() => {
+                                cerrarSesionInmediata();
+                            }, 500);
                         }
-                    };
-                } catch (error) { alert("Error al iniciar NFC: " + error); }
-            } else { alert("Navegador sin soporte Web NFC directo."); }
+                        break;
+                    }
+                };
+            } catch (error) {
+                console.warn("Error al iniciar Web NFC, usando método alternativo de texto:", error);
+                fichar(tipo);
+            }
+        }
+
+        function cerrarSesionInmediata() {
+            adminSesionActiva = null;
+            if(document.getElementById('admin-panel')) {
+                document.getElementById('admin-panel').classList.add('oculto');
+                if(document.getElementById('admin-login-box')) {
+                    document.getElementById('admin-login-box').classList.remove('oculto');
+                }
+            }
+            ocultarModulosJornada();
+            cambiarVista('fichar');
+            document.getElementById('input-nfc-id').value = '';
         }
 
         async function fichar(tipo) {
@@ -2045,15 +2073,6 @@
             }
         }
 
-        // Función auxiliar para obtener el número de semana del año actual
-        function obtenerNumeroSemana(fecha) {
-            const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
-            const dayNum = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFolder || d.getUTCFullYear(), 0, 1));
-            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-        }
-
         function renderizarTodoAdmin() {
             renderizarAdmins();
 
@@ -2074,7 +2093,6 @@
 
                     registros.forEach(r => {
                         if (r.idEmpleado === emp.id && r.segundosLaborados) {
-                            // Validar si pertenece al año actual
                             const regAnio = r.anio || anioActual;
                             if (regAnio === anioActual) {
                                 segundosAnio += r.segundosLaborados;
@@ -2083,7 +2101,6 @@
                                 }
                             }
 
-                            // Validar si pertenece a la semana actual (por timestamp de entrada)
                             if (r.timestampEntrada && (ahoraMs - r.timestampEntrada <= unaSemanaMs)) {
                                 segundosSemana += r.segundosLaborados;
                             }
