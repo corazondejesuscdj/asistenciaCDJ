@@ -364,6 +364,12 @@
             box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
             margin-top: 5px;
         }
+        
+        .btn-registrar-elegante:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
 
         .acciones-rapidas-grid {
             display: grid;
@@ -605,7 +611,7 @@
                 </div>
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <label style="margin-bottom:0;">Zona /              Área:</label>
+                        <label style="margin-bottom:0;">Zona / Área:</label>
                         <button type="button" class="btn-info-circulo" title="Ver Croquis de Zonas" onclick="abrirModalCroquis()">i</button>
                     </div>
                     <select id="bitacora-proyecto">
@@ -651,7 +657,7 @@
                     <option value="Pendiente / Bloqueado">Pendiente / Bloqueado</option>
                 </select>
             </div>
-            <button class="btn-registrar-elegante" onclick="guardarTareaBitacora()">Registrar Tarea en Bitácora</button>
+            <button id="btn-registrar-bitacora" class="btn-registrar-elegante" onclick="guardarTareaBitacora()">Registrar Tarea en Bitácora</button>
             <div id="mensaje-bitacora" class="alerta oculto"></div>
         </div>
 
@@ -1166,7 +1172,6 @@
             poblarSelectsColaboradores();
         }
 
-        // Función modificada para mostrar únicamente el contenido del NFC (sin paréntesis ni rangos)
         function poblarSelectsColaboradores() {
             const selectFichar = document.getElementById('select-colaborador-fichar');
             const selectBitacora = document.getElementById('bitacora-id-emp');
@@ -1722,6 +1727,7 @@
         }
 
         function guardarTareaBitacora() {
+            const btnRegistrar = document.getElementById('btn-registrar-bitacora');
             const idEmp = document.getElementById('bitacora-id-emp').value;
             const proyecto = document.getElementById('bitacora-proyecto').value;
             const titulo = document.getElementById('bitacora-titulo').value.trim();
@@ -1741,6 +1747,10 @@
                 mostrarAlerta(msg, "Colaborador no encontrado.", "error");
                 return;
             }
+
+            // Deshabilitar el botón temporalmente para evitar duplicados por clics múltiples
+            btnRegistrar.disabled = true;
+            btnRegistrar.textContent = "Registrando...";
 
             const procesarGuardado = async (fotoBase64) => {
                 const ahora = new Date();
@@ -1780,13 +1790,22 @@
                 }
 
                 mostrarAlerta(msg, "¡Tarea registrada con éxito!" + mensajeExtra, "exito");
+                
+                // === LIMPIEZA DE CAMPOS Y ARCHIVO DE IMAGEN ===
                 document.getElementById('bitacora-titulo').value = '';
                 document.getElementById('bitacora-desc').value = '';
                 document.getElementById('bitacora-vincular-tarea').value = '';
                 document.getElementById('bitacora-foto').value = '';
+                document.getElementById('bitacora-estado').value = 'Completado';
+                // Opcional: si quieres conservar el ID del empleado que fichó, puedes dejarlo o limpiarlo comentando la siguiente línea:
+                // document.getElementById('bitacora-id-emp').value = '';
                 
                 cargarOpcionesTareasEnBitacora();
                 renderizarBitacoraRecientes();
+
+                // Reactivar el botón de registro
+                btnRegistrar.disabled = false;
+                btnRegistrar.textContent = "Registrar Tarea en Bitácora";
             };
 
             if (inputFile.files && inputFile.files[0]) {
@@ -1800,12 +1819,10 @@
             }
         }
 
-        // Función para los botones de texto (Selección múltiple en pantalla)
         function ficharTexto(tipo) {
             fichar(tipo);
         }
 
-        // Función exclusiva para los botones de NFC con Logo
         async function ficharNFCConAccion(tipo) {
             if (!('NDEFReader' in window)) {
                 alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, seleccione su ID en el menú desplegable.");
