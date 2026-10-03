@@ -1206,17 +1206,31 @@
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
 
+        // ----------------------------------------------------
+        // GESTIÓN DE PERSISTENCIA DE MÓDULOS DE JORNADA (SESIÓN)
+        // ----------------------------------------------------
         function mostrarModulosJornada() {
             document.getElementById('btn-tab-bitacora').classList.remove('oculto');
             document.getElementById('btn-tab-tareas').classList.remove('oculto');
+            localStorage.setItem('cdj_sesion_activa_jornada', 'true');
         }
 
         function ocultarModulosJornada() {
             if (!adminSesionActiva) {
                 document.getElementById('btn-tab-bitacora').classList.add('oculto');
                 document.getElementById('btn-tab-tareas').classList.add('oculto');
+                localStorage.removeItem('cdj_sesion_activa_jornada');
             }
         }
+
+        // Comprobar al cargar la página si había una sesión de jornada abierta
+        window.addEventListener('DOMContentLoaded', () => {
+            const sesionJornadaAbierta = localStorage.getItem('cdj_sesion_activa_jornada');
+            if (sesionJornadaAbierta === 'true') {
+                document.getElementById('btn-tab-bitacora').classList.remove('oculto');
+                document.getElementById('btn-tab-tareas').classList.remove('oculto');
+            }
+        });
 
         function cambiarVista(vista) {
             document.getElementById('vista-fichar').classList.add('oculto');
@@ -1536,7 +1550,6 @@
             }
         }
 
-        // NUEVA FUNCIÓN PARA ELIMINAR REGISTROS DE LA BITÁCORA GLOBAL DESDE ADMIN
         async function eliminarRegistroBitacoraGlobal(idDocLocal, idUnicoIndex) {
             if (!adminSesionActiva) {
                 alert("Acción reservada únicamente para administradores.");
@@ -2074,7 +2087,6 @@
                 tbodyStats.appendChild(tr);
             });
 
-            // RENDERIZAR BITÁCORA GLOBAL EN ADMIN CON BOTÓN DE ELIMINACIÓN RESTRINGIDO A ADMINS
             const tbodyBitAdmin = document.getElementById('tabla-admin-bitacora').querySelector('tbody');
             tbodyBitAdmin.innerHTML = '';
             if (bitacoraTareas.length === 0) {
@@ -2214,7 +2226,7 @@
                     localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
                 }
             } else if (tipo === 'empleado') {
-                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idDocIdentificador) || e.id === idDocIdentificador);
+                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idIdentificador) || e.id === idDocIdentificador);
                 if (empMatch) {
                     empMatch.nombre = nombre;
                     empMatch.puesto = puesto;
