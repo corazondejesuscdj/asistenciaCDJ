@@ -560,9 +560,11 @@
         <h2 style="margin-top:0; font-size: 1.2rem;">Registro de Jornada</h2>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Tu espacio digital para reportar tu entrada y salida laboral.</p>
         
-        <label>Identificador (ID, QR o NFC):</label>
-        <div class="input-group">
-            <input type="text" id="input-nfc-id" placeholder="Ej. EMP-001" autofocus>
+        <label>Seleccionar Colaborador / Empleado:</label>
+        <div class="input-group" style="margin-bottom: 20px;">
+            <select id="select-colaborador-fichar">
+                <option value="">-- Selecciona tu nombre --</option>
+            </select>
             
             <button type="button" class="btn-scan" title="Escanear Código QR en Vivo" onclick="abrirEscannerQR()">
                 <svg viewBox="0 0 24 24">
@@ -571,7 +573,7 @@
             </button>
         </div>
         
-        <!-- Botones de Texto (Solo Código Escrito) y Botones NFC con Logo -->
+        <!-- Botones de Texto (Solo Selección Escrita) y Botones NFC con Logo -->
         <div class="btns" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
             <button class="btn-primary" onclick="ficharTexto('entrada')">Entrada</button>
             <button class="btn-secondary" onclick="ficharTexto('salida')">Salida</button>
@@ -596,8 +598,10 @@
         <div style="background: var(--bg-input); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div>
-                    <label>ID de Colaborador / Admin:</label>
-                    <input type="text" id="bitacora-id-emp" placeholder="Ej. EMP-001">
+                    <label>Colaborador / Admin:</label>
+                    <select id="bitacora-id-emp">
+                        <option value="">-- Selecciona tu nombre --</option>
+                    </select>
                 </div>
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -1159,6 +1163,34 @@
                 tareasSemanales = snapTar.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                 localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
             }
+            poblarSelectsColaboradores();
+        }
+
+        // Función para poblar dinámicamente los menús desplegables de colaboradores
+        function poblarSelectsColaboradores() {
+            const selectFichar = document.getElementById('select-colaborador-fichar');
+            const selectBitacora = document.getElementById('bitacora-id-emp');
+            
+            const valorActualFichar = selectFichar.value;
+            const valorActualBitacora = selectBitacora.value;
+
+            selectFichar.innerHTML = '<option value="">-- Selecciona tu nombre --</option>';
+            selectBitacora.innerHTML = '<option value="">-- Selecciona tu nombre --</option>';
+
+            empleados.forEach(emp => {
+                const optionF = document.createElement('option');
+                optionF.value = emp.id;
+                optionF.textContent = `${emp.nombre} (${emp.puesto || 'General'})`;
+                selectFichar.appendChild(optionF);
+
+                const optionB = document.createElement('option');
+                optionB.value = emp.id;
+                optionB.textContent = `${emp.nombre} (${emp.puesto || 'General'})`;
+                selectBitacora.appendChild(optionB);
+            });
+
+            if (valorActualFichar) selectFichar.value = valorActualFichar;
+            if (valorActualBitacora) selectBitacora.value = valorActualBitacora;
         }
 
         function exportarRespaldoJSON() {
@@ -1204,6 +1236,7 @@
                         localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
                     }
                     alert("¡Respaldo importado y restaurado exitosamente!");
+                    poblarSelectsColaboradores();
                     renderizarTodoAdmin();
                 } catch (err) {
                     alert("Error al procesar el archivo JSON: " + err);
@@ -1238,6 +1271,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            poblarSelectsColaboradores();
             const sesionJornadaAbierta = localStorage.getItem('cdj_sesion_activa_jornada');
             if (sesionJornadaAbierta === 'true') {
                 document.getElementById('btn-tab-bitacora').classList.remove('oculto');
@@ -1288,7 +1322,11 @@
                 { facingMode: "environment" }, 
                 config, 
                 (decodedText) => {
-                    document.getElementById('input-nfc-id').value = decodedText.trim().toUpperCase();
+                    const escaneado = decodedText.trim().toUpperCase();
+                    const empMatch = empleados.find(e => e.id.toUpperCase() === escaneado || e.nfc.toUpperCase() === escaneado);
+                    if (empMatch) {
+                        document.getElementById('select-colaborador-fichar').value = empMatch.id;
+                    }
                     cerrarEscannerQR();
                     fichar('entrada');
                 },
@@ -1360,6 +1398,7 @@
             localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
             localStorage.setItem('control_empleados', JSON.stringify(empleados));
 
+            poblarSelectsColaboradores();
             mostrarAlerta(msg, "¡Cuenta creada con éxito! Iniciando sesión...", "exito");
 
             setTimeout(() => {
@@ -1432,6 +1471,7 @@
             localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
             localStorage.setItem('control_empleados', JSON.stringify(empleados));
 
+            poblarSelectsColaboradores();
             mostrarAlerta(msg, "¡Administrador registrado exitosamente!", "exito");
 
             document.getElementById('admin-alta-nombre').value = '';
@@ -1472,6 +1512,7 @@
             empleados.push(nuevoEmpObj);
             localStorage.setItem('control_empleados', JSON.stringify(empleados));
             
+            poblarSelectsColaboradores();
             mostrarAlerta(msg, "¡Empleado registrado con éxito!", "exito");
 
             document.getElementById('nuevo-nombre').value = '';
@@ -1679,7 +1720,7 @@
         }
 
         function guardarTareaBitacora() {
-            const idEmp = document.getElementById('bitacora-id-emp').value.trim().toUpperCase();
+            const idEmp = document.getElementById('bitacora-id-emp').value;
             const proyecto = document.getElementById('bitacora-proyecto').value;
             const titulo = document.getElementById('bitacora-titulo').value.trim();
             const desc = document.getElementById('bitacora-desc').value.trim();
@@ -1689,13 +1730,13 @@
             const msg = document.getElementById('mensaje-bitacora');
 
             if (!idEmp || !titulo) {
-                mostrarAlerta(msg, "Debe ingresar su ID de colaborador y el título de la tarea.", "error");
+                mostrarAlerta(msg, "Debe seleccionar un colaborador y colocar el título de la tarea.", "error");
                 return;
             }
 
-            const empleado = empleados.find(e => e.id.toUpperCase() === idEmp || e.nfc.toUpperCase() === idEmp);
+            const empleado = empleados.find(e => e.id === idEmp);
             if (!empleado) {
-                mostrarAlerta(msg, "ID de colaborador no encontrado.", "error");
+                mostrarAlerta(msg, "Colaborador no encontrado.", "error");
                 return;
             }
 
@@ -1757,15 +1798,15 @@
             }
         }
 
-        // Función para los botones de texto (Entrada y Salida tradicionales)
+        // Función para los botones de texto (Selección múltiple en pantalla)
         function ficharTexto(tipo) {
             fichar(tipo);
         }
 
-        // Función exclusiva para los nuevos botones de NFC con Logo
+        // Función exclusiva para los botones de NFC con Logo
         async function ficharNFCConAccion(tipo) {
             if (!('NDEFReader' in window)) {
-                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, ingresa el ID manualmente en el campo de texto.");
+                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, selecciona tu nombre en el menú desplegable.");
                 return;
             }
 
@@ -1778,14 +1819,19 @@
                     const decoder = new TextDecoder();
                     for (const record of event.message.records) {
                         const nfcValue = decoder.decode(record.data).trim().toUpperCase();
-                        document.getElementById('input-nfc-id').value = nfcValue;
+                        const empMatch = empleados.find(e => e.id.toUpperCase() === nfcValue || e.nfc.toUpperCase() === nfcValue);
                         
-                        fichar(tipo);
-                        
-                        if (tipo === 'salida') {
-                            setTimeout(() => {
-                                cerrarSesionInmediata();
-                            }, 500);
+                        if (empMatch) {
+                            document.getElementById('select-colaborador-fichar').value = empMatch.id;
+                            fichar(tipo);
+                            
+                            if (tipo === 'salida') {
+                                setTimeout(() => {
+                                    cerrarSesionInmediata();
+                                }, 500);
+                            }
+                        } else {
+                            alert("Tarjeta NFC no registrada en el sistema.");
                         }
                         break;
                     }
@@ -1806,17 +1852,16 @@
             }
             ocultarModulosJornada();
             cambiarVista('fichar');
-            document.getElementById('input-nfc-id').value = '';
+            document.getElementById('select-colaborador-fichar').value = '';
         }
 
         async function fichar(tipo) {
-            const inputVal = document.getElementById('input-nfc-id').value.trim().toUpperCase();
-            if (!inputVal) { alert("Por favor ingrese o escanee su ID."); return; }
+            const selectVal = document.getElementById('select-colaborador-fichar').value;
+            if (!selectVal) { alert("Por favor seleccione un colaborador."); return; }
 
-            const empleado = empleados.find(e => e.id.toUpperCase() === inputVal || e.nfc.toUpperCase() === inputVal);
+            const empleado = empleados.find(e => e.id === selectVal);
             if (!empleado) {
-                mostrarPopupResultado("Acceso Denegado", `<strong style="color:var(--danger);">Identificador no registrado.</strong>`, false);
-                document.getElementById('input-nfc-id').value = '';
+                alert("Colaborador no encontrado.");
                 return;
             }
 
@@ -1827,7 +1872,7 @@
             const turnoCompletadoHoy = registros.find(r => r.idEmpleado === empleado.id && r.fechaEntrada === fechaActual && r.horaSalida !== null);
             if (turnoCompletadoHoy) {
                 mostrarPopupResultado("Jornada Concluida", `<strong>${empleado.nombre}</strong>, ya concluiste tu jornada hoy.`, false);
-                document.getElementById('input-nfc-id').value = '';
+                document.getElementById('select-colaborador-fichar').value = '';
                 return;
             }
 
@@ -1836,7 +1881,7 @@
                 if (abierto) {
                     mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa.`, false);
                     mostrarModulosJornada();
-                    document.getElementById('input-nfc-id').value = '';
+                    document.getElementById('select-colaborador-fichar').value = '';
                     return;
                 }
 
@@ -1866,7 +1911,7 @@
                 const abierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
                 if (!abierto) {
                     mostrarPopupResultado("Aviso", `No hay entrada registrada hoy para <strong>${empleado.nombre}</strong>.`, false);
-                    document.getElementById('input-nfc-id').value = '';
+                    document.getElementById('select-colaborador-fichar').value = '';
                     return;
                 }
 
@@ -1906,7 +1951,7 @@
             }
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
-            document.getElementById('input-nfc-id').value = '';
+            document.getElementById('select-colaborador-fichar').value = '';
         }
 
         function renderizarBitacoraRecientes() {
@@ -1940,7 +1985,6 @@
 
         function cerrarModalResultado() {
             document.getElementById('modal-resultado').classList.add('oculto');
-            document.getElementById('input-nfc-id').focus();
         }
 
         function poblarSelectAnios() {
@@ -2264,6 +2308,7 @@
                 }
             }
 
+            poblarSelectsColaboradores();
             alert("¡Cambios guardados con éxito!");
             cerrarModalEditar();
             renderizarTodoAdmin();
@@ -2286,7 +2331,7 @@
         }
 
         async function eliminarEmpleado(idEmp) {
-            if (confirm("¿Estás seguro de eliminar este empleado del sistema?")) {
+            if (confirm("¿Estás seguro de eliminar este empleado del sistema? Ya no aparecerá en los menús desplegables.")) {
                 const empMatch = empleados.find(e => e.id === idEmp);
                 if (empMatch && window.firebaseEnabled && empMatch.idDoc) {
                     try {
@@ -2297,6 +2342,8 @@
 
                 empleados = empleados.filter(e => e.id !== idEmp);
                 localStorage.setItem('control_empleados', JSON.stringify(empleados));
+                
+                poblarSelectsColaboradores();
                 renderizarTodoAdmin();
             }
         }
