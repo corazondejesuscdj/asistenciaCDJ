@@ -1095,8 +1095,13 @@
         let empleados = JSON.parse(localStorage.getItem('control_empleados')) || [];
         let cuentasAdmin = JSON.parse(localStorage.getItem('control_cuentas_admin')) || [];
         let adminSesionActiva = null;
-        let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
-        let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
+        
+        // BORRÓN Y CUENTA NUEVA: Se inicializan vacíos los registros y la bitácora local
+        let registros = [];
+        let bitacoraTareas = [];
+        localStorage.setItem('control_registros', JSON.stringify(registros));
+        localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+
         let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
 
         window.addEventListener('firebase-ready', async () => {
@@ -1123,18 +1128,6 @@
             if (!snapAdmin.empty) {
                 cuentasAdmin = snapAdmin.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                 localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-            }
-
-            const snapReg = await getDocs(collection(db, "registros"));
-            if (!snapReg.empty) {
-                registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_registros', JSON.stringify(registros));
-            }
-
-            const snapBit = await getDocs(collection(db, "bitacoraTareas"));
-            if (!snapBit.empty) {
-                bitacoraTareas = snapBit.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
             }
 
             const snapTar = await getDocs(collection(db, "tareasSemanales"));
@@ -1223,7 +1216,6 @@
             }
         }
 
-        // Comprobar al cargar la página si había una sesión de jornada abierta
         window.addEventListener('DOMContentLoaded', () => {
             const sesionJornadaAbierta = localStorage.getItem('cdj_sesion_activa_jornada');
             if (sesionJornadaAbierta === 'true') {
@@ -2205,7 +2197,7 @@
                 const correo = document.getElementById('edit-correo').value.trim().toLowerCase();
                 const pass = document.getElementById('edit-pass').value.trim();
 
-                const adminMatch = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idDocIdentificador) || a.correo === idDocIdentificador);
+                const adminMatch = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idDocIdentificador) || a.correo === idIdentificador);
                 if (adminMatch) {
                     adminMatch.nombre = nombre;
                     adminMatch.puesto = puesto;
