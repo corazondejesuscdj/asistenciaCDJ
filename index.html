@@ -772,7 +772,7 @@
                 </table>
             </div>
 
-            <h3 style="font-size: 1rem; margin-top: 30px;">📋 Bitácora Global de Tareas</h3>
+            <h3 style="font-size: 1rem; margin-top: 30px;">📋 Bitácora Global de Tareas <small style="color: var(--text-muted); font-weight: normal;">(Los administradores pueden eliminar registros erróneos)</small></h3>
             <div class="table-responsive">
                 <table id="tabla-admin-bitacora">
                     <thead>
@@ -783,6 +783,7 @@
                             <th>Tarea</th>
                             <th>Evidencia</th>
                             <th>Estado</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -1535,6 +1536,32 @@
             }
         }
 
+        // NUEVA FUNCIÓN PARA ELIMINAR REGISTROS DE LA BITÁCORA GLOBAL DESDE ADMIN
+        async function eliminarRegistroBitacoraGlobal(idDocLocal, idUnicoIndex) {
+            if (!adminSesionActiva) {
+                alert("Acción reservada únicamente para administradores.");
+                return;
+            }
+
+            if (confirm("¿Estás seguro de eliminar este registro erróneo o imagen equivocada de la bitácora?")) {
+                const registroMatch = bitacoraTareas.find(b => (b.idDoc && b.idDoc === idDocLocal) || (b.id === idUnicoIndex));
+                
+                if (registroMatch && window.firebaseEnabled && registroMatch.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "bitacoraTareas", registroMatch.idDoc));
+                    } catch (e) { console.warn("Error al borrar en Firebase:", e); }
+                }
+
+                bitacoraTareas = bitacoraTareas.filter(b => !((b.idDoc && b.idDoc === idDocLocal) || (b.id === idUnicoIndex)));
+                localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+                
+                renderizarTodoAdmin();
+                renderizarBitacoraRecientes();
+                alert("¡Registro eliminado de la bitácora correctamente!");
+            }
+        }
+
         function verificarAdmin() {
             const correoInput = document.getElementById('admin-email').value.trim().toLowerCase();
             const passInput = document.getElementById('admin-pass').value.trim();
@@ -1653,6 +1680,7 @@
                 }).format(ahora);
 
                 const nuevaBitacoraObj = {
+                    id: Date.now(),
                     fechaHora, nombreEmpleado: empleado.nombre, idEmpleado: empleado.id,
                     proyecto, titulo, desc, estado, foto: fotoBase64 || null, empresaId: EMPRESA_UNICA.id
                 };
@@ -1917,7 +1945,6 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
-            // Encabezado del PDF
             doc.setFillColor(11, 15, 25);
             doc.rect(0, 0, 210, 30, 'F');
             doc.setTextColor(255, 255, 255);
@@ -1942,16 +1969,13 @@
                     yPos = 20;
                 }
 
-                // Filtrar registros del empleado para el año seleccionado
                 const regsEmp = registros.filter(r => r.idEmpleado === emp.id && (r.anio === anioSeleccionado || (r.fechaEntrada && r.fechaEntrada.includes(anioSeleccionado))));
-                const bitEmp = bitacoraTareas.filter(b => b.idEmpleado === emp.id);
-
+                
                 let totalSegundos = 0;
                 regsEmp.forEach(r => { totalSegundos += (r.segundosLaborados || 0); });
                 const totalHoras = (totalSegundos / 3600).toFixed(1);
                 const diasLaborados = new Set(regsEmp.map(r => r.fechaEntrada)).size;
 
-                // Tarjeta de Colaborador en PDF
                 doc.setFillColor(243, 244, 246);
                 doc.roundedRect(14, yPos, 182, 10, 2, 2, 'F');
                 doc.setFont("helvetica", "bold");
@@ -2006,7 +2030,6 @@
                 yPos += 10;
             });
 
-            // Guardar archivo PDF
             doc.save(`Estado_Cuenta_Anual_${anioSeleccionado}_CDJ.pdf`);
         }
 
@@ -2051,20 +2074,26 @@
                 tbodyStats.appendChild(tr);
             });
 
+            // RENDERIZAR BITÁCORA GLOBAL EN ADMIN CON BOTÓN DE ELIMINACIÓN RESTRINGIDO A ADMINS
             const tbodyBitAdmin = document.getElementById('tabla-admin-bitacora').querySelector('tbody');
             tbodyBitAdmin.innerHTML = '';
             if (bitacoraTareas.length === 0) {
-                tbodyBitAdmin.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Sin tareas registradas.</td></tr>`;
+                tbodyBitAdmin.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Sin tareas registradas.</td></tr>`;
             } else {
-                bitacoraTareas.slice(0, 20).forEach(t => {
+                bitacoraTareas.forEach((t, idx) => {
+                    const docIdStr = t.idDoc ? `'${t.idDoc}'` : 'null';
+                    const uniqueId = t.id || idx;
+                    const botonBorrarTarea = adminSesionActiva ? `<button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarRegistroBitacoraGlobal(${docIdStr}, ${uniqueId})" title="Eliminar registro erróneo o imagen equivocada">🗑 Borrar</button>` : `<span style="color:var(--text-muted); font-size:0.75rem;">Solo Admin</span>`;
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><small>${t.fechaHora}</small></td>
                         <td><strong>${t.nombreEmpleado}</strong></td>
                         <td><span style="color:var(--primary);">${t.proyecto}</span></td>
                         <td><strong>${t.titulo}</strong><br><small>${t.desc}</small></td>
-                        <td>${t.foto ? `<img src="${t.foto}" class="preview-foto" onclick="ampliarImagenTarea('${t.foto}')">` : 'Sin foto'}</td>
+                        <td>${t.foto ? `<img src="${t.foto}" class="preview-foto" onclick="ampliarImagenTarea('${t.foto}')" title="Clic para ampliar imagen">` : 'Sin foto'}</td>
                         <td><strong>${t.estado}</strong></td>
+                        <td>${botonBorrarTarea}</td>
                     `;
                     tbodyBitAdmin.appendChild(tr);
                 });
@@ -2089,82 +2118,54 @@
 
             const tbodyEmp = document.getElementById('tabla-empleados').querySelector('tbody');
             tbodyEmp.innerHTML = '';
-            empleados.forEach(e => {
+            empleados.forEach(emp => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${e.nombre}</strong></td>
-                    <td>${e.id}</td>
-                    <td>${e.puesto}</td>
-                    <td>${e.nfc}</td>
+                    <td><strong>${emp.nombre}</strong></td>
+                    <td>${emp.id}</td>
+                    <td>${emp.puesto}</td>
+                    <td>${emp.nfc}</td>
                     <td>
-                        <button class="btn-info" style="padding:4px 8px; font-size:0.75rem;" onclick="abrirModalEditar('empleado', '${e.idDoc || e.id}')">Editar</button>
-                        <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarEmpleado('${e.id}')">Eliminar</button>
+                        <button class="btn-info" style="padding:4px 8px; font-size:0.75rem;" onclick="abrirModalEditar('empleado', '${emp.idDoc || emp.id}')">Editar</button>
+                        <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarEmpleado('${emp.id}')">Eliminar</button>
                     </td>
                 `;
                 tbodyEmp.appendChild(tr);
             });
         }
 
-        async function eliminarAdmin(correo) {
-            if (confirm(`¿Eliminar al administrador con correo ${correo}?`)) {
-                const adminMatch = cuentasAdmin.find(a => a.correo === correo);
-                if (adminMatch && window.firebaseEnabled && adminMatch.idDoc) {
-                    try {
-                        const { doc, deleteDoc } = window.fsModule;
-                        await deleteDoc(doc(window.db, "cuentasAdmin", adminMatch.idDoc));
-                    } catch (e) { console.warn(e); }
-                }
-                cuentasAdmin = cuentasAdmin.filter(a => a.correo !== correo);
-                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-                renderizarTodoAdmin();
-            }
-        }
-
-        async function eliminarEmpleado(idEmp) {
-            if (confirm(`¿Eliminar al empleado con ID ${idEmp}?`)) {
-                const empMatch = empleados.find(e => e.id === idEmp);
-                if (empMatch && window.firebaseEnabled && empMatch.idDoc) {
-                    try {
-                        const { doc, deleteDoc } = window.fsModule;
-                        await deleteDoc(doc(window.db, "empleados", empMatch.idDoc));
-                    } catch (e) { console.warn(e); }
-                }
-                empleados = empleados.filter(e => e.id !== idEmp);
-                localStorage.setItem('control_empleados', JSON.stringify(empleados));
-                renderizarTodoAdmin();
-            }
-        }
-
-        function abrirModalEditar(tipo, identificador) {
+        function abrirModalEditar(tipo, idIdentificador) {
             document.getElementById('edit-tipo').value = tipo;
-            document.getElementById('edit-id-doc').value = identificador;
+            document.getElementById('edit-id-doc').value = idIdentificador;
 
             if (tipo === 'admin') {
-                const admin = cuentasAdmin.find(a => (a.idDoc === identificador) || (a.correo === identificador));
-                if (!admin) return;
                 document.getElementById('modal-editar-titulo').textContent = "Editar Administrador";
-                document.getElementById('edit-nombre').value = admin.nombre;
-                document.getElementById('edit-puesto').value = admin.puesto;
-                document.getElementById('edit-correo').value = admin.correo;
-                document.getElementById('edit-pass').value = admin.pass;
-                document.getElementById('edit-id-fichar').value = admin.idFichar;
-                document.getElementById('edit-nfc').value = admin.nfcFichar;
+                const adminObj = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idIdentificador) || a.correo === idIdentificador);
+                if (adminObj) {
+                    document.getElementById('edit-nombre').value = adminObj.nombre;
+                    document.getElementById('edit-puesto').value = adminObj.puesto;
+                    document.getElementById('edit-correo').value = adminObj.correo;
+                    document.getElementById('edit-pass').value = adminObj.pass;
+                    document.getElementById('edit-id-fichar').value = adminObj.idFichar;
+                    document.getElementById('edit-nfc').value = adminObj.nfcFichar;
 
-                document.getElementById('div-edit-puesto').classList.remove('oculto');
-                document.getElementById('div-edit-correo').classList.remove('oculto');
-                document.getElementById('div-edit-pass').classList.remove('oculto');
-            } else {
-                const emp = empleados.find(e => (e.idDoc === identificador) || (e.id === identificador));
-                if (!emp) return;
-                document.getElementById('modal-editar-titulo').textContent = "Editar Empleado";
-                document.getElementById('edit-nombre').value = emp.nombre;
-                document.getElementById('edit-puesto').value = emp.puesto;
-                document.getElementById('edit-id-fichar').value = emp.id;
-                document.getElementById('edit-nfc').value = emp.nfc;
+                    document.getElementById('div-edit-puesto').classList.remove('oculto');
+                    document.getElementById('div-edit-correo').classList.remove('oculto');
+                    document.getElementById('div-edit-pass').classList.remove('oculto');
+                }
+            } else if (tipo === 'empleado') {
+                document.getElementById('modal-editar-titulo').textContent = "Editar Empleado Operativo";
+                const empObj = empleados.find(e => (e.idDoc && e.idDoc === idIdentificador) || e.id === idIdentificador);
+                if (empObj) {
+                    document.getElementById('edit-nombre').value = empObj.nombre;
+                    document.getElementById('edit-puesto').value = empObj.puesto;
+                    document.getElementById('edit-id-fichar').value = empObj.id;
+                    document.getElementById('edit-nfc').value = empObj.nfc;
 
-                document.getElementById('div-edit-puesto').classList.remove('oculto');
-                document.getElementById('div-edit-correo').classList.add('oculto');
-                document.getElementById('div-edit-pass').classList.add('oculto');
+                    document.getElementById('div-edit-puesto').classList.remove('oculto');
+                    document.getElementById('div-edit-correo').classList.add('oculto');
+                    document.getElementById('div-edit-pass').classList.add('oculto');
+                }
             }
 
             document.getElementById('modal-editar').classList.remove('oculto');
@@ -2176,61 +2177,107 @@
 
         async function guardarEdicionModal() {
             const tipo = document.getElementById('edit-tipo').value;
-            const identificador = document.getElementById('edit-id-doc').value;
+            const idDocIdentificador = document.getElementById('edit-id-doc').value;
             
             const nombre = document.getElementById('edit-nombre').value.trim();
             const puesto = document.getElementById('edit-puesto').value.trim();
             const idFichar = document.getElementById('edit-id-fichar').value.trim().toUpperCase();
             const nfc = document.getElementById('edit-nfc').value.trim().toUpperCase();
 
+            if (!nombre || !idFichar) {
+                alert("El nombre y el ID para fichar son obligatorios.");
+                return;
+            }
+
             if (tipo === 'admin') {
                 const correo = document.getElementById('edit-correo').value.trim().toLowerCase();
                 const pass = document.getElementById('edit-pass').value.trim();
-                const admin = cuentasAdmin.find(a => (a.idDoc === identificador) || (a.correo === identificador));
-                if (admin) {
-                    admin.nombre = nombre;
-                    admin.puesto = puesto;
-                    admin.correo = correo;
-                    admin.pass = pass;
-                    admin.idFichar = idFichar;
-                    admin.nfcFichar = nfc;
 
-                    if (window.firebaseEnabled && admin.idDoc) {
+                const adminMatch = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idDocIdentificador) || a.correo === idDocIdentificador);
+                if (adminMatch) {
+                    adminMatch.nombre = nombre;
+                    adminMatch.puesto = puesto;
+                    adminMatch.correo = correo;
+                    adminMatch.pass = pass;
+                    adminMatch.idFichar = idFichar;
+                    adminMatch.nfcFichar = nfc;
+
+                    if (window.firebaseEnabled && adminMatch.idDoc) {
                         try {
                             const { doc, updateDoc } = window.fsModule;
-                            await updateDoc(doc(window.db, "cuentasAdmin", admin.idDoc), admin);
+                            await updateDoc(doc(window.db, "cuentasAdmin", adminMatch.idDoc), {
+                                nombre, puesto, correo, pass, idFichar, nfcFichar: nfc
+                            });
                         } catch (e) { console.warn(e); }
                     }
-                }
-                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-            } else {
-                const emp = empleados.find(e => (e.idDoc === identificador) || (e.id === identificador));
-                if (emp) {
-                    emp.nombre = nombre;
-                    emp.puesto = puesto;
-                    emp.id = idFichar;
-                    emp.nfc = nfc;
 
-                    if (window.firebaseEnabled && emp.idDoc) {
+                    localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+                }
+            } else if (tipo === 'empleado') {
+                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idDocIdentificador) || e.id === idDocIdentificador);
+                if (empMatch) {
+                    empMatch.nombre = nombre;
+                    empMatch.puesto = puesto;
+                    empMatch.id = idFichar;
+                    empMatch.nfc = nfc;
+
+                    if (window.firebaseEnabled && empMatch.idDoc) {
                         try {
                             const { doc, updateDoc } = window.fsModule;
-                            await updateDoc(doc(window.db, "empleados", emp.idDoc), emp);
+                            await updateDoc(doc(window.db, "empleados", empMatch.idDoc), {
+                                nombre, puesto, id: idFichar, nfc
+                            });
                         } catch (e) { console.warn(e); }
                     }
+
+                    localStorage.setItem('control_empleados', JSON.stringify(empleados));
                 }
-                localStorage.setItem('control_empleados', JSON.stringify(empleados));
             }
 
+            alert("¡Cambios guardados con éxito!");
             cerrarModalEditar();
             renderizarTodoAdmin();
-            alert("¡Cambios guardados con éxito!");
+        }
+
+        async function eliminarAdmin(correo) {
+            if (confirm("¿Estás seguro de eliminar esta cuenta de administrador?")) {
+                const adminMatch = cuentasAdmin.find(a => a.correo === correo);
+                if (adminMatch && window.firebaseEnabled && adminMatch.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "cuentasAdmin", adminMatch.idDoc));
+                    } catch (e) { console.warn(e); }
+                }
+
+                cuentasAdmin = cuentasAdmin.filter(a => a.correo !== correo);
+                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+                renderizarTodoAdmin();
+            }
+        }
+
+        async function eliminarEmpleado(idEmp) {
+            if (confirm("¿Estás seguro de eliminar este empleado del sistema?")) {
+                const empMatch = empleados.find(e => e.id === idEmp);
+                if (empMatch && window.firebaseEnabled && empMatch.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "empleados", empMatch.idDoc));
+                    } catch (e) { console.warn(e); }
+                }
+
+                empleados = empleados.filter(e => e.id !== idEmp);
+                localStorage.setItem('control_empleados', JSON.stringify(empleados));
+                renderizarTodoAdmin();
+            }
         }
 
         function mostrarAlerta(elemento, texto, tipo) {
             elemento.textContent = texto;
             elemento.className = `alerta ${tipo}`;
             elemento.classList.remove('oculto');
-            setTimeout(() => { elemento.classList.add('oculto'); }, 4000);
+            setTimeout(() => {
+                elemento.classList.add('oculto');
+            }, 4000);
         }
     </script>
 </body>
