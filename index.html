@@ -1166,7 +1166,7 @@
             poblarSelectsColaboradores();
         }
 
-        // Función modificada para mostrar el Código NFC en lugar del nombre en los selectores
+        // Función modificada para mostrar únicamente el contenido del NFC (sin paréntesis ni rangos)
         function poblarSelectsColaboradores() {
             const selectFichar = document.getElementById('select-colaborador-fichar');
             const selectBitacora = document.getElementById('bitacora-id-emp');
@@ -1182,12 +1182,12 @@
                 
                 const optionF = document.createElement('option');
                 optionF.value = emp.id;
-                optionF.textContent = `${textoNfc} (${emp.puesto || 'General'})`;
+                optionF.textContent = textoNfc;
                 selectFichar.appendChild(optionF);
 
                 const optionB = document.createElement('option');
                 optionB.value = emp.id;
-                optionB.textContent = `${textoNfc} (${emp.puesto || 'General'})`;
+                optionB.textContent = textoNfc;
                 selectBitacora.appendChild(optionB);
             });
 
