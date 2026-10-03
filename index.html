@@ -563,7 +563,7 @@
         <label>Seleccionar Colaborador / Empleado:</label>
         <div class="input-group" style="margin-bottom: 20px;">
             <select id="select-colaborador-fichar">
-                <option value=""> Selecciona tu ID </option>
+                <option value="">-- Selecciona tu ID --</option>
             </select>
             
             <button type="button" class="btn-scan" title="Escanear Código QR en Vivo" onclick="abrirEscannerQR()">
@@ -600,8 +600,7 @@
                 <div>
                     <label>Colaborador / Admin:</label>
                     <select id="bitacora-id-emp">
-                        <option value="">Selecciona tu ID
-                      </option>
+                        <option value="">-- Selecciona tu ID --</option>
                     </select>
                 </div>
                 <div>
@@ -1167,7 +1166,7 @@
             poblarSelectsColaboradores();
         }
 
-        // Función para poblar dinámicamente los menús desplegables de colaboradores
+        // Función modificada para mostrar el Código NFC en lugar del nombre en los selectores
         function poblarSelectsColaboradores() {
             const selectFichar = document.getElementById('select-colaborador-fichar');
             const selectBitacora = document.getElementById('bitacora-id-emp');
@@ -1175,18 +1174,20 @@
             const valorActualFichar = selectFichar.value;
             const valorActualBitacora = selectBitacora.value;
 
-            selectFichar.innerHTML = '<option value="">-- Selecciona tu nombre --</option>';
-            selectBitacora.innerHTML = '<option value="">-- Selecciona tu nombre --</option>';
+            selectFichar.innerHTML = '<option value="">-- Selecciona tu ID --</option>';
+            selectBitacora.innerHTML = '<option value="">-- Selecciona tu ID --</option>';
 
             empleados.forEach(emp => {
+                const textoNfc = emp.nfc || emp.id;
+                
                 const optionF = document.createElement('option');
                 optionF.value = emp.id;
-                optionF.textContent = `${emp.nombre} (${emp.puesto || 'General'})`;
+                optionF.textContent = `${textoNfc} (${emp.puesto || 'General'})`;
                 selectFichar.appendChild(optionF);
 
                 const optionB = document.createElement('option');
                 optionB.value = emp.id;
-                optionB.textContent = `${emp.nombre} (${emp.puesto || 'General'})`;
+                optionB.textContent = `${textoNfc} (${emp.puesto || 'General'})`;
                 selectBitacora.appendChild(optionB);
             });
 
@@ -1807,7 +1808,7 @@
         // Función exclusiva para los botones de NFC con Logo
         async function ficharNFCConAccion(tipo) {
             if (!('NDEFReader' in window)) {
-                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, selecciona tu nombre en el menú desplegable.");
+                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, seleccione su ID en el menú desplegable.");
                 return;
             }
 
@@ -1858,7 +1859,7 @@
 
         async function fichar(tipo) {
             const selectVal = document.getElementById('select-colaborador-fichar').value;
-            if (!selectVal) { alert("Por favor seleccione un colaborador."); return; }
+            if (!selectVal) { alert("Por favor seleccione su ID."); return; }
 
             const empleado = empleados.find(e => e.id === selectVal);
             if (!empleado) {
@@ -2289,7 +2290,7 @@
                     localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
                 }
             } else if (tipo === 'empleado') {
-                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idIdentificador) || e.id === idDocIdentificador);
+                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idIdentificador) || e.id === idIdentificador);
                 if (empMatch) {
                     empMatch.nombre = nombre;
                     empMatch.puesto = puesto;
