@@ -337,7 +337,6 @@
         .btn-info { background: var(--primary); }
         .btn-warning { background: var(--warning); color: #000; }
 
-        /* Estilo para botones con logo NFC integrado */
         .btn-nfc-logo {
             display: flex;
             align-items: center;
@@ -1173,6 +1172,14 @@
                 bitacoraTareas = snapBit.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                 localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
             }
+
+            // Sincronizar también los registros de asistencia globales en la nube
+            const snapReg = await getDocs(collection(db, "registros"));
+            if (!snapReg.empty) {
+                registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_registros', JSON.stringify(registros));
+            }
+
             poblarSelectsColaboradores();
         }
 
@@ -1332,14 +1339,14 @@
             html5QrCode.start(
                 { facingMode: "environment" }, 
                 config, 
-                (decodedText) => {
+                async (decodedText) => {
                     const escaneado = decodedText.trim().toUpperCase();
                     const empMatch = empleados.find(e => e.id.toUpperCase() === escaneado || e.nfc.toUpperCase() === escaneado);
                     if (empMatch) {
                         document.getElementById('select-colaborador-fichar').value = empMatch.id;
                     }
                     cerrarEscannerQR();
-                    fichar('entrada');
+                    await fichar('entrada');
                 },
                 (errorMessage) => {}
             ).catch(err => {
@@ -1728,7 +1735,6 @@
             }
         }
 
-        // Función auxiliar para comprimir imágenes y evitar bloqueos por tamaño
         function comprimirImagen(file, maxAncho, calidad, callback) {
             const reader = new FileReader();
             reader.onload = function (e) {
@@ -1791,11 +1797,9 @@
                     proyecto, titulo, desc, estado, foto: fotoBase64 || null, empresaId: EMPRESA_UNICA.id
                 };
 
-                // Guardado inmediato en memoria y almacenamiento local para agilidad
                 bitacoraTareas.unshift(nuevaBitacoraObj);
                 localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
 
-                // Intento opcional en segundo plano a Firebase sin bloquear la interfaz
                 if (window.firebaseEnabled) {
                     window.fsModule.addDoc(window.fsModule.collection(window.db, "bitacoraTareas"), nuevaBitacoraObj)
                         .then(docRef => {
@@ -1817,7 +1821,6 @@
                     mensajeExtra = "<br><br>✨ ¡Se liberó la tarea del tablero semanal!";
                 }
                 
-                // Limpiar campos del formulario
                 document.getElementById('bitacora-titulo').value = '';
                 document.getElementById('bitacora-desc').value = '';
                 document.getElementById('bitacora-vincular-tarea').value = '';
@@ -1827,11 +1830,9 @@
                 cargarOpcionesTareasEnBitacora();
                 renderizarBitacoraRecientes();
 
-                // Reactivar botón
                 btnRegistrar.disabled = false;
                 btnRegistrar.textContent = "Registrar Tarea en Bitácora";
 
-                // Mostrar la ventana emergente de éxito solicitada
                 mostrarPopupResultado("¡Registrado con Éxito!", `La actividad de <strong>${empleado.nombre}</strong> ha sido guardada en la bitácora correctamente.${mensajeExtra}`, true);
             };
 
@@ -1859,7 +1860,7 @@
                 await ndef.scan();
                 alert(`Lector NFC activado para ${tipo.toUpperCase()}. Acerque su tarjeta...`);
                 
-                ndef.onreading = event => {
+                ndef.onreading = async event => {
                     const decoder = new TextDecoder();
                     for (const record of event.message.records) {
                         const nfcValue = decoder.decode(record.data).trim().toUpperCase();
@@ -1867,7 +1868,7 @@
                         
                         if (empMatch) {
                             document.getElementById('select-colaborador-fichar').value = empMatch.id;
-                            fichar(tipo);
+                            await fichar(tipo);
                             
                             if (tipo === 'salida') {
                                 setTimeout(() => {
@@ -1899,6 +1900,7 @@
             document.getElementById('select-colaborador-fichar').value = '';
         }
 
+        // FUNCIÓN PRINCIPAL DE FICHAR ACTUALIZADA (SINCRONIZADA GLOBALMENTE)
         async function fichar(tipo) {
             const selectVal = document.getElementById('select-colaborador-fichar').value;
             if (!selectVal) { alert("Por favor seleccione su ID."); return; }
@@ -1907,6 +1909,20 @@
             if (!empleado) {
                 alert("Colaborador no encontrado.");
                 return;
+            }
+
+            // Antes de procesar, si hay conexión, actualizamos la lista global de registros desde Cloud
+            if (window.firebaseEnabled) {
+                try {
+                    const { collection, getDocs } = window.fsModule;
+                    const snapReg = await getDocs(collection(window.db, "registros"));
+                    if (!snapReg.empty) {
+                        registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                        localStorage.setItem('control_registros', JSON.stringify(registros));
+                    }
+                } catch (e) {
+                    console.warn("No se pudo actualizar registros desde la nube, usando caché local.", e);
+                }
             }
 
             const ahora = new Date();
@@ -1921,9 +1937,10 @@
             }
 
             if (tipo === 'entrada') {
-                const abierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
-                if (abierto) {
-                    mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa.`, false);
+                // Verificar GLOBALMENTE si ya tiene una entrada abierta en cualquier dispositivo
+                const abiertoGlobal = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
+                if (abiertoGlobal) {
+                    mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa registrada en el sistema (en este u otro dispositivo). No es necesario volver a marcar.`, false);
                     mostrarModulosJornada();
                     document.getElementById('select-colaborador-fichar').value = '';
                     return;
@@ -1952,35 +1969,36 @@
                 mostrarModulosJornada();
                 mostrarPopupResultado("¡Entrada Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Hora: <strong>${horaActual}</strong><br><br><small style="color:var(--primary);">Pestañas de Bitácora y Tareas habilitadas.</small>`, true);
             } else {
-                const abierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
-                if (!abierto) {
-                    mostrarPopupResultado("Aviso", `No hay entrada registrada hoy para <strong>${empleado.nombre}</strong>.`, false);
+                // Buscar la entrada abierta sin importar en qué dispositivo se haya creado
+                const abiertoGlobal = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
+                if (!abiertoGlobal) {
+                    mostrarPopupResultado("Aviso", `No se encontró ninguna entrada activa registrada hoy para <strong>${empleado.nombre}</strong> en el sistema.`, false);
                     document.getElementById('select-colaborador-fichar').value = '';
                     return;
                 }
 
-                abierto.fechaSalida = fechaActual;
-                abierto.horaSalida = horaActual;
+                abiertoGlobal.fechaSalida = fechaActual;
+                abiertoGlobal.horaSalida = horaActual;
 
-                const [h1, m1, s1] = abierto.horaEntrada.split(':').map(Number);
+                const [h1, m1, s1] = abiertoGlobal.horaEntrada.split(':').map(Number);
                 const [h2, m2, s2] = horaActual.split(':').map(Number);
                 let diff = (h2 * 3600 + m2 * 60 + s2) - (h1 * 3600 + m1 * 60 + s1);
                 if (diff < 0) diff += 24 * 3600;
 
-                abierto.segundosLaborados = diff;
+                abiertoGlobal.segundosLaborados = diff;
                 const h = Math.floor(diff / 3600);
                 const m = Math.floor((diff % 3600) / 60);
                 const s = diff % 60;
-                abierto.tiempoLaborado = `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
+                abiertoGlobal.tiempoLaborado = `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
 
-                if (window.firebaseEnabled && abierto.idDoc) {
+                if (window.firebaseEnabled && abiertoGlobal.idDoc) {
                     try {
                         const { doc, updateDoc } = window.fsModule;
-                        await updateDoc(doc(window.db, "registros", abierto.idDoc), {
+                        await updateDoc(doc(window.db, "registros", abiertoGlobal.idDoc), {
                             fechaSalida: fechaActual,
                             horaSalida: horaActual,
                             segundosLaborados: diff,
-                            tiempoLaborado: abierto.tiempoLaborado
+                            tiempoLaborado: abiertoGlobal.tiempoLaborado
                         });
                     } catch (e) { console.warn(e); }
                 }
@@ -1991,7 +2009,7 @@
                     document.getElementById('bitacora-id-emp').value = '';
                 }
 
-                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo: <strong>${abierto.tiempoLaborado}</strong>`, true);
+                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo: <strong>${abiertoGlobal.tiempoLaborado}</strong>`, true);
             }
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
@@ -2395,7 +2413,7 @@
         function mostrarAlerta(elemento, texto, tipo) {
             elemento.textContent = texto;
             elemento.className = `alerta ${tipo}`;
-            elemento.classList.remove('oculto');
+            elemento.classList.add('oculto');
             setTimeout(() => {
                 elemento.classList.add('oculto');
             }, 4000);
