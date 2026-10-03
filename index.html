@@ -1131,10 +1131,8 @@
         let cuentasAdmin = JSON.parse(localStorage.getItem('control_cuentas_admin')) || [];
         let adminSesionActiva = null;
         
-        let registros = [];
-        let bitacoraTareas = [];
-        localStorage.setItem('control_registros', JSON.stringify(registros));
-        localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+        let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
+        let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
 
         let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
 
@@ -1168,6 +1166,12 @@
             if (!snapTar.empty) {
                 tareasSemanales = snapTar.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                 localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+            }
+
+            const snapBit = await getDocs(collection(db, "bitacoraTareas"));
+            if (!snapBit.empty) {
+                bitacoraTareas = snapBit.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
             }
             poblarSelectsColaboradores();
         }
@@ -1580,11 +1584,9 @@
             };
 
             if (inputFile.files && inputFile.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    procesarPublicacion(e.target.result);
-                };
-                reader.readAsDataURL(inputFile.files[0]);
+                comprimirImagen(inputFile.files[0], 800, 0.7, (base64) => {
+                    procesarPublicacion(base64);
+                });
             } else {
                 procesarPublicacion(null);
             }
@@ -1726,6 +1728,32 @@
             }
         }
 
+        // Función auxiliar para comprimir imágenes y evitar bloqueos por tamaño
+        function comprimirImagen(file, maxAncho, calidad, callback) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    let canvas = document.createElement('canvas');
+                    let ancho = img.width;
+                    let alto = img.height;
+
+                    if (ancho > maxAncho) {
+                        alto = Math.round((alto * maxAncho) / ancho);
+                        ancho = maxAncho;
+                    }
+
+                    canvas.width = ancho;
+                    canvas.height = alto;
+                    let ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, ancho, alto);
+                    callback(canvas.toDataURL('image/jpeg', calidad));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
         function guardarTareaBitacora() {
             const btnRegistrar = document.getElementById('btn-registrar-bitacora');
             const idEmp = document.getElementById('bitacora-id-emp').value;
@@ -1748,7 +1776,6 @@
                 return;
             }
 
-            // Deshabilitar el botón temporalmente para evitar duplicados por clics múltiples
             btnRegistrar.disabled = true;
             btnRegistrar.textContent = "Registrando...";
 
@@ -1764,56 +1791,54 @@
                     proyecto, titulo, desc, estado, foto: fotoBase64 || null, empresaId: EMPRESA_UNICA.id
                 };
 
-                if (window.firebaseEnabled) {
-                    try {
-                        const { collection, addDoc } = window.fsModule;
-                        const docRef = await addDoc(collection(window.db, "bitacoraTareas"), nuevaBitacoraObj);
-                        nuevaBitacoraObj.idDoc = docRef.id;
-                    } catch (e) { console.warn(e); }
-                }
-
+                // Guardado inmediato en memoria y almacenamiento local para agilidad
                 bitacoraTareas.unshift(nuevaBitacoraObj);
                 localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+
+                // Intento opcional en segundo plano a Firebase sin bloquear la interfaz
+                if (window.firebaseEnabled) {
+                    window.fsModule.addDoc(window.fsModule.collection(window.db, "bitacoraTareas"), nuevaBitacoraObj)
+                        .then(docRef => {
+                            nuevaBitacoraObj.idDoc = docRef.id;
+                            localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
+                        }).catch(e => console.warn("Error en sincronización cloud:", e));
+                }
 
                 let mensajeExtra = "";
                 if (tareaVinculadaId && estado === "Completado") {
                     const tareaMatch = tareasSemanales.find(t => t.id == tareaVinculadaId);
                     if (tareaMatch && window.firebaseEnabled && tareaMatch.idDoc) {
                         try {
-                            const { doc, deleteDoc } = window.fsModule;
-                            await deleteDoc(doc(window.db, "tareasSemanales", tareaMatch.idDoc));
+                            window.fsModule.deleteDoc(window.fsModule.doc(window.db, "tareasSemanales", tareaMatch.idDoc));
                         } catch (e) { console.warn(e); }
                     }
                     tareasSemanales = tareasSemanales.filter(t => t.id != tareaVinculadaId);
                     localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                    mensajeExtra = " ¡Se liberó la tarea del tablero semanal!";
+                    mensajeExtra = "<br><br>✨ ¡Se liberó la tarea del tablero semanal!";
                 }
-
-                mostrarAlerta(msg, "¡Tarea registrada con éxito!" + mensajeExtra, "exito");
                 
-                // === LIMPIEZA DE CAMPOS Y ARCHIVO DE IMAGEN ===
+                // Limpiar campos del formulario
                 document.getElementById('bitacora-titulo').value = '';
                 document.getElementById('bitacora-desc').value = '';
                 document.getElementById('bitacora-vincular-tarea').value = '';
                 document.getElementById('bitacora-foto').value = '';
                 document.getElementById('bitacora-estado').value = 'Completado';
-                // Opcional: si quieres conservar el ID del empleado que fichó, puedes dejarlo o limpiarlo comentando la siguiente línea:
-                // document.getElementById('bitacora-id-emp').value = '';
                 
                 cargarOpcionesTareasEnBitacora();
                 renderizarBitacoraRecientes();
 
-                // Reactivar el botón de registro
+                // Reactivar botón
                 btnRegistrar.disabled = false;
                 btnRegistrar.textContent = "Registrar Tarea en Bitácora";
+
+                // Mostrar la ventana emergente de éxito solicitada
+                mostrarPopupResultado("¡Registrado con Éxito!", `La actividad de <strong>${empleado.nombre}</strong> ha sido guardada en la bitácora correctamente.${mensajeExtra}`, true);
             };
 
             if (inputFile.files && inputFile.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    procesarGuardado(e.target.result);
-                };
-                reader.readAsDataURL(inputFile.files[0]);
+                comprimirImagen(inputFile.files[0], 800, 0.7, (fotoComprimida) => {
+                    procesarGuardado(fotoComprimida);
+                });
             } else {
                 procesarGuardado(null);
             }
