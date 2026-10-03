@@ -824,7 +824,7 @@
                 </table>
             </div>
 
-            <h3 style="font-size: 1rem; margin-top: 30px;">Historial Global de Asistencias</h3>
+            <h3 style="font-size: 1rem; margin-top: 30px;">Historial Global de Asistencias <small style="color: var(--primary); font-weight: normal;">(Ciclo Semanal: Lunes a Domingo 11:59 PM)</small></h3>
             <div class="table-responsive">
                 <table id="tabla-historial">
                     <thead>
@@ -1173,7 +1173,6 @@
                 localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
             }
 
-            // Sincronizar también los registros de asistencia globales en la nube
             const snapReg = await getDocs(collection(db, "registros"));
             if (!snapReg.empty) {
                 registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
@@ -1900,7 +1899,6 @@
             document.getElementById('select-colaborador-fichar').value = '';
         }
 
-        // FUNCIÓN PRINCIPAL DE FICHAR ACTUALIZADA (SINCRONIZADA GLOBALMENTE)
         async function fichar(tipo) {
             const selectVal = document.getElementById('select-colaborador-fichar').value;
             if (!selectVal) { alert("Por favor seleccione su ID."); return; }
@@ -1911,7 +1909,6 @@
                 return;
             }
 
-            // Antes de procesar, si hay conexión, actualizamos la lista global de registros desde Cloud
             if (window.firebaseEnabled) {
                 try {
                     const { collection, getDocs } = window.fsModule;
@@ -1937,7 +1934,6 @@
             }
 
             if (tipo === 'entrada') {
-                // Verificar GLOBALMENTE si ya tiene una entrada abierta en cualquier dispositivo
                 const abiertoGlobal = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
                 if (abiertoGlobal) {
                     mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa registrada en el sistema (en este u otro dispositivo). No es necesario volver a marcar.`, false);
@@ -1969,7 +1965,6 @@
                 mostrarModulosJornada();
                 mostrarPopupResultado("¡Entrada Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Hora: <strong>${horaActual}</strong><br><br><small style="color:var(--primary);">Pestañas de Bitácora y Tareas habilitadas.</small>`, true);
             } else {
-                // Buscar la entrada abierta sin importar en qué dispositivo se haya creado
                 const abiertoGlobal = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
                 if (!abiertoGlobal) {
                     mostrarPopupResultado("Aviso", `No se encontró ninguna entrada activa registrada hoy para <strong>${empleado.nombre}</strong> en el sistema.`, false);
@@ -2235,12 +2230,36 @@
                 });
             }
 
+            // ==========================================
+            // FILTRADO DEL HISTORIAL GLOBAL DE ASISTENCIAS (LUNES A DOMINGO 11:59 PM)
+            // ==========================================
+            const ahora = new Date();
+            const diaSemana = ahora.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+            
+            // Calcular fecha del Lunes de la semana actual a las 00:00:00
+            const inicioLunes = new Date(ahora);
+            const distanciaLunes = (diaSemana === 0) ? -6 : (1 - diaSemana);
+            inicioLunes.setDate(ahora.getDate() + distanciaLunes);
+            inicioLunes.setHours(0, 0, 0, 0);
+
+            // Calcular fecha del Domingo de la semana actual a las 23:59:59
+            const finDomingo = new Date(inicioLunes);
+            finDomingo.setDate(inicioLunes.getDate() + 6);
+            finDomingo.setHours(23, 59, 59, 999);
+
+            const registrosSemana = registros.filter(r => {
+                if (!r.timestampEntrada) return true; // Fallback si no tiene timestamp
+                const tiempoReg = new Date(r.timestampEntrada);
+                return tiempoReg >= inicioLunes && tiempoReg <= finDomingo;
+            });
+
             const tbodyHistorial = document.getElementById('tabla-historial').querySelector('tbody');
             tbodyHistorial.innerHTML = '';
-            if (registros.length === 0) {
-                tbodyHistorial.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin registros de asistencia.</td></tr>`;
+            
+            if (registrosSemana.length === 0) {
+                tbodyHistorial.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin registros de asistencia en la semana actual. (Se reinicia cada lunes).</td></tr>`;
             } else {
-                registros.slice(-20).reverse().forEach(r => {
+                registrosSemana.slice(-25).reverse().forEach(r => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><strong>${r.nombre}</strong><br><small>${r.idEmpleado}</small></td>
@@ -2350,7 +2369,7 @@
                     localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
                 }
             } else if (tipo === 'empleado') {
-                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idIdentificador) || e.id === idIdentificador);
+                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idDocIdentificador) || e.id === idIdentificador);
                 if (empMatch) {
                     empMatch.nombre = nombre;
                     empMatch.puesto = puesto;
