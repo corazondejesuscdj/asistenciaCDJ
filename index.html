@@ -337,6 +337,20 @@
         .btn-info { background: var(--primary); }
         .btn-warning { background: var(--warning); color: #000; }
 
+        /* Estilo para botones con logo NFC integrado */
+        .btn-nfc-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-nfc-logo svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
         .btn-registrar-elegante {
             width: 100%;
             background: linear-gradient(135deg, var(--success), var(--success-hover));
@@ -557,9 +571,20 @@
             </button>
         </div>
         
-        <div class="btns">
-            <button class="btn-primary" onclick="ficharNFCConAccion('entrada')">Entrada</button>
-            <button class="btn-secondary" onclick="ficharNFCConAccion('salida')">Salida</button>
+        <!-- Botones de Texto (Solo Código Escrito) y Botones NFC con Logo -->
+        <div class="btns" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
+            <button class="btn-primary" onclick="ficharTexto('entrada')">Entrada</button>
+            <button class="btn-secondary" onclick="ficharTexto('salida')">Salida</button>
+        </div>
+        <div class="btns" style="grid-template-columns: 1fr 1fr;">
+            <button class="btn-info btn-nfc-logo" onclick="ficharNFCConAccion('entrada')">
+                <svg viewBox="0 0 24 24"><path d="M20,2H4A2,2 0 0,0 2,4V20A2,2 0 0,0 4,22H20A2,2 0 0,0 22,20V4A2,2 0 0,0 20,2M20,20H4V4H20V20M18,6H6V8H18V6M6,10V12H18V10H6M6,14V16H14V14H6M6,18H16V20H6V18Z"/></svg>
+                Entrada NFC
+            </button>
+            <button class="btn-warning btn-nfc-logo" onclick="ficharNFCConAccion('salida')">
+                <svg viewBox="0 0 24 24"><path d="M20,2H4A2,2 0 0,0 2,4V20A2,2 0 0,0 4,22H20A2,2 0 0,0 22,20V4A2,2 0 0,0 20,2M20,20H4V4H20V20M18,6H6V8H18V6M6,10V12H18V10H6M6,14V16H14V14H6M6,18H16V20H6V18Z"/></svg>
+                Salida NFC
+            </button>
         </div>
     </section>
 
@@ -1096,7 +1121,6 @@
         let cuentasAdmin = JSON.parse(localStorage.getItem('control_cuentas_admin')) || [];
         let adminSesionActiva = null;
         
-        // BORRÓN Y CUENTA NUEVA: Se inicializan vacíos los registros y la bitácora local
         let registros = [];
         let bitacoraTareas = [];
         localStorage.setItem('control_registros', JSON.stringify(registros));
@@ -1199,9 +1223,6 @@
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
 
-        // ----------------------------------------------------
-        // GESTIÓN DE PERSISTENCIA DE MÓDULOS DE JORNADA (SESIÓN)
-        // ----------------------------------------------------
         function mostrarModulosJornada() {
             document.getElementById('btn-tab-bitacora').classList.remove('oculto');
             document.getElementById('btn-tab-tareas').classList.remove('oculto');
@@ -1736,10 +1757,15 @@
             }
         }
 
+        // Función para los botones de texto (Entrada y Salida tradicionales)
+        function ficharTexto(tipo) {
+            fichar(tipo);
+        }
+
+        // Función exclusiva para los nuevos botones de NFC con Logo
         async function ficharNFCConAccion(tipo) {
             if (!('NDEFReader' in window)) {
-                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, ingresa el ID manualmente.");
-                fichar(tipo);
+                alert("Tu navegador no soporta el lector NFC físico (Web NFC). Por favor, ingresa el ID manualmente en el campo de texto.");
                 return;
             }
 
@@ -1765,8 +1791,8 @@
                     }
                 };
             } catch (error) {
-                console.warn("Error al iniciar Web NFC, usando método alternativo de texto:", error);
-                fichar(tipo);
+                console.warn("Error al iniciar Web NFC:", error);
+                alert("No se pudo iniciar el escáner NFC. Verifique los permisos del dispositivo.");
             }
         }
 
@@ -1785,7 +1811,7 @@
 
         async function fichar(tipo) {
             const inputVal = document.getElementById('input-nfc-id').value.trim().toUpperCase();
-            if (!inputVal) { alert("Por favor ingrese su ID o NFC."); return; }
+            if (!inputVal) { alert("Por favor ingrese o escanee su ID."); return; }
 
             const empleado = empleados.find(e => e.id.toUpperCase() === inputVal || e.nfc.toUpperCase() === inputVal);
             if (!empleado) {
