@@ -1926,17 +1926,14 @@
             const fechaActual = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short' }).format(ahora);
             const horaActual = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(ahora);
 
-            const turnoCompletadoHoy = registros.find(r => r.idEmpleado === empleado.id && r.fechaEntrada === fechaActual && r.horaSalida !== null);
-            if (turnoCompletadoHoy) {
-                mostrarPopupResultado("Jornada Concluida", `<strong>${empleado.nombre}</strong>, ya concluiste tu jornada hoy.`, false);
-                document.getElementById('select-colaborador-fichar').value = '';
-                return;
-            }
+            // CORRECCIÓN LÓGICA DE ENTRADAS Y SALIDAS:
+            // Buscamos un turno activo (sin horaSalida) EXCLUSIVAMENTE del día actual para evitar que turnos colgados de días anteriores bloqueen o alteren el cálculo.
+            let turnoAbierto = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida && r.fechaEntrada === fechaActual);
 
             if (tipo === 'entrada') {
-                const abiertoGlobal = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
-                if (abiertoGlobal) {
-                    mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa registrada en el sistema (en este u otro dispositivo). No es necesario volver a marcar.`, false);
+                if (turnoAbierto) {
+                    // Si ya tiene una entrada abierta hoy, no permitimos abrir otra duplicada.
+                    mostrarPopupResultado("Aviso", `<strong>${empleado.nombre}</strong> ya tiene una entrada activa registrada hoy a las <strong>${turnoAbierto.horaEntrada}</strong>. Debes registrar tu salida antes de iniciar un nuevo turno.`, false);
                     mostrarModulosJornada();
                     document.getElementById('select-colaborador-fichar').value = '';
                     return;
@@ -1965,35 +1962,35 @@
                 mostrarModulosJornada();
                 mostrarPopupResultado("¡Entrada Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Hora: <strong>${horaActual}</strong><br><br><small style="color:var(--primary);">Pestañas de Bitácora y Tareas habilitadas.</small>`, true);
             } else {
-                const abiertoGlobal = registros.find(r => r.idEmpleado === empleado.id && !r.horaSalida);
-                if (!abiertoGlobal) {
-                    mostrarPopupResultado("Aviso", `No se encontró ninguna entrada activa registrada hoy para <strong>${empleado.nombre}</strong> en el sistema.`, false);
+                // Si el usuario intenta dar SALIDA pero no hay ningún turno abierto registrado hoy
+                if (!turnoAbierto) {
+                    mostrarPopupResultado("Aviso", `No se encontró ninguna entrada activa registrada hoy para <strong>${empleado.nombre}</strong>. Primero debes registrar tu entrada.`, false);
                     document.getElementById('select-colaborador-fichar').value = '';
                     return;
                 }
 
-                abiertoGlobal.fechaSalida = fechaActual;
-                abiertoGlobal.horaSalida = horaActual;
+                turnoAbierto.fechaSalida = fechaActual;
+                turnoAbierto.horaSalida = horaActual;
 
-                const [h1, m1, s1] = abiertoGlobal.horaEntrada.split(':').map(Number);
+                const [h1, m1, s1] = turnoAbierto.horaEntrada.split(':').map(Number);
                 const [h2, m2, s2] = horaActual.split(':').map(Number);
                 let diff = (h2 * 3600 + m2 * 60 + s2) - (h1 * 3600 + m1 * 60 + s1);
-                if (diff < 0) diff += 24 * 3600;
+                if (diff < 0) diff += 24 * 3600; // Por si cruza la medianoche
 
-                abiertoGlobal.segundosLaborados = diff;
+                turnoAbierto.segundosLaborados = diff;
                 const h = Math.floor(diff / 3600);
                 const m = Math.floor((diff % 3600) / 60);
                 const s = diff % 60;
-                abiertoGlobal.tiempoLaborado = `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
+                turnoAbierto.tiempoLaborado = `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`;
 
-                if (window.firebaseEnabled && abiertoGlobal.idDoc) {
+                if (window.firebaseEnabled && turnoAbierto.idDoc) {
                     try {
                         const { doc, updateDoc } = window.fsModule;
-                        await updateDoc(doc(window.db, "registros", abiertoGlobal.idDoc), {
+                        await updateDoc(doc(window.db, "registros", turnoAbierto.idDoc), {
                             fechaSalida: fechaActual,
                             horaSalida: horaActual,
                             segundosLaborados: diff,
-                            tiempoLaborado: abiertoGlobal.tiempoLaborado
+                            tiempoLaborado: turnoAbierto.tiempoLaborado
                         });
                     } catch (e) { console.warn(e); }
                 }
@@ -2004,7 +2001,7 @@
                     document.getElementById('bitacora-id-emp').value = '';
                 }
 
-                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo: <strong>${abiertoGlobal.tiempoLaborado}</strong>`, true);
+                mostrarPopupResultado("¡Salida Registrada!", `Colaborador: <strong>${empleado.nombre}</strong><br>Tiempo Laborado: <strong>${turnoAbierto.tiempoLaborado}</strong>`, true);
             }
 
             localStorage.setItem('control_registros', JSON.stringify(registros));
@@ -2289,38 +2286,45 @@
             });
         }
 
-        function abrirModalEditar(tipo, idIdentificador) {
+        function mostrarAlerta(elemento, texto, tipo) {
+            elemento.textContent = texto;
+            elemento.className = `alerta ${tipo}`;
+            elemento.classList.remove('oculto');
+            setTimeout(() => {
+                elemento.classList.add('oculto');
+            }, 4000);
+        }
+
+        function abrirModalEditar(tipo, idRef) {
             document.getElementById('edit-tipo').value = tipo;
-            document.getElementById('edit-id-doc').value = idIdentificador;
+            document.getElementById('edit-id-doc').value = idRef;
 
             if (tipo === 'admin') {
+                const admin = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idRef) || a.correo === idRef);
+                if (!admin) return;
                 document.getElementById('modal-editar-titulo').textContent = "Editar Administrador";
-                const adminObj = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idIdentificador) || a.correo === idIdentificador);
-                if (adminObj) {
-                    document.getElementById('edit-nombre').value = adminObj.nombre;
-                    document.getElementById('edit-puesto').value = adminObj.puesto;
-                    document.getElementById('edit-correo').value = adminObj.correo;
-                    document.getElementById('edit-pass').value = adminObj.pass;
-                    document.getElementById('edit-id-fichar').value = adminObj.idFichar;
-                    document.getElementById('edit-nfc').value = adminObj.nfcFichar;
+                document.getElementById('edit-nombre').value = admin.nombre;
+                document.getElementById('edit-puesto').value = admin.puesto;
+                document.getElementById('edit-correo').value = admin.correo;
+                document.getElementById('edit-pass').value = admin.pass;
+                document.getElementById('edit-id-fichar').value = admin.idFichar;
+                document.getElementById('edit-nfc').value = admin.nfcFichar;
 
-                    document.getElementById('div-edit-puesto').classList.remove('oculto');
-                    document.getElementById('div-edit-correo').classList.remove('oculto');
-                    document.getElementById('div-edit-pass').classList.remove('oculto');
-                }
-            } else if (tipo === 'empleado') {
+                document.getElementById('div-edit-puesto').style.display = 'block';
+                document.getElementById('div-edit-correo').style.display = 'block';
+                document.getElementById('div-edit-pass').style.display = 'block';
+            } else {
+                const emp = empleados.find(e => (e.idDoc && e.idDoc === idRef) || e.id === idRef);
+                if (!emp) return;
                 document.getElementById('modal-editar-titulo').textContent = "Editar Empleado Operativo";
-                const empObj = empleados.find(e => (e.idDoc && e.idDoc === idIdentificador) || e.id === idIdentificador);
-                if (empObj) {
-                    document.getElementById('edit-nombre').value = empObj.nombre;
-                    document.getElementById('edit-puesto').value = empObj.puesto;
-                    document.getElementById('edit-id-fichar').value = empObj.id;
-                    document.getElementById('edit-nfc').value = empObj.nfc;
+                document.getElementById('edit-nombre').value = emp.nombre;
+                document.getElementById('edit-puesto').value = emp.puesto || '';
+                document.getElementById('edit-id-fichar').value = emp.id;
+                document.getElementById('edit-nfc').value = emp.nfc;
 
-                    document.getElementById('div-edit-puesto').classList.remove('oculto');
-                    document.getElementById('div-edit-correo').classList.add('oculto');
-                    document.getElementById('div-edit-pass').classList.add('oculto');
-                }
+                document.getElementById('div-edit-puesto').style.display = 'block';
+                document.getElementById('div-edit-correo').style.display = 'none';
+                document.getElementById('div-edit-pass').style.display = 'none';
             }
 
             document.getElementById('modal-editar').classList.remove('oculto');
@@ -2332,87 +2336,61 @@
 
         async function guardarEdicionModal() {
             const tipo = document.getElementById('edit-tipo').value;
-            const idDocIdentificador = document.getElementById('edit-id-doc').value;
-            
+            const idRef = document.getElementById('edit-id-doc').value;
+
             const nombre = document.getElementById('edit-nombre').value.trim();
-            const puesto = document.getElementById('edit-puesto').value.trim();
             const idFichar = document.getElementById('edit-id-fichar').value.trim().toUpperCase();
             const nfc = document.getElementById('edit-nfc').value.trim().toUpperCase();
 
-            if (!nombre || !idFichar) {
-                alert("El nombre y el ID para fichar son obligatorios.");
+            if (!nombre || !idFichar || !nfc) {
+                alert("Complete los campos obligatorios.");
                 return;
             }
 
             if (tipo === 'admin') {
-                const correo = document.getElementById('edit-correo').value.trim().toLowerCase();
-                const pass = document.getElementById('edit-pass').value.trim();
-
-                const adminMatch = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idDocIdentificador) || a.correo === idIdentificador);
-                if (adminMatch) {
-                    adminMatch.nombre = nombre;
-                    adminMatch.puesto = puesto;
-                    adminMatch.correo = correo;
-                    adminMatch.pass = pass;
-                    adminMatch.idFichar = idFichar;
-                    adminMatch.nfcFichar = nfc;
-
-                    if (window.firebaseEnabled && adminMatch.idDoc) {
-                        try {
-                            const { doc, updateDoc } = window.fsModule;
-                            await updateDoc(doc(window.db, "cuentasAdmin", adminMatch.idDoc), {
-                                nombre, puesto, correo, pass, idFichar, nfcFichar: nfc
-                            });
-                        } catch (e) { console.warn(e); }
-                    }
+                const admin = cuentasAdmin.find(a => (a.idDoc && a.idDoc === idRef) || a.correo === idRef);
+                if (admin) {
+                    admin.nombre = nombre;
+                    admin.puesto = document.getElementById('edit-puesto').value.trim();
+                    admin.correo = document.getElementById('edit-correo').value.trim().toLowerCase();
+                    admin.pass = document.getElementById('edit-pass').value.trim();
+                    admin.idFichar = idFichar;
+                    admin.nfcFichar = nfc;
 
                     localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-                }
-            } else if (tipo === 'empleado') {
-                const empMatch = empleados.find(e => (e.idDoc && e.idDoc === idDocIdentificador) || e.id === idIdentificador);
-                if (empMatch) {
-                    empMatch.nombre = nombre;
-                    empMatch.puesto = puesto;
-                    empMatch.id = idFichar;
-                    empMatch.nfc = nfc;
-
-                    if (window.firebaseEnabled && empMatch.idDoc) {
+                    if (window.firebaseEnabled && admin.idDoc) {
                         try {
                             const { doc, updateDoc } = window.fsModule;
-                            await updateDoc(doc(window.db, "empleados", empMatch.idDoc), {
-                                nombre, puesto, id: idFichar, nfc
-                            });
+                            await updateDoc(doc(window.db, "cuentasAdmin", admin.idDoc), { ...admin });
                         } catch (e) { console.warn(e); }
                     }
+                }
+            } else {
+                const emp = empleados.find(e => (e.idDoc && e.idDoc === idRef) || e.id === idRef);
+                if (emp) {
+                    emp.nombre = nombre;
+                    emp.puesto = document.getElementById('edit-puesto').value.trim();
+                    emp.id = idFichar;
+                    emp.nfc = nfc;
 
                     localStorage.setItem('control_empleados', JSON.stringify(empleados));
+                    if (window.firebaseEnabled && emp.idDoc) {
+                        try {
+                            const { doc, updateDoc } = window.fsModule;
+                            await updateDoc(doc(window.db, "empleados", emp.idDoc), { ...emp });
+                        } catch (e) { console.warn(e); }
+                    }
                 }
             }
 
-            poblarSelectsColaboradores();
-            alert("¡Cambios guardados con éxito!");
             cerrarModalEditar();
+            poblarSelectsColaboradores();
             renderizarTodoAdmin();
-        }
-
-        async function eliminarAdmin(correo) {
-            if (confirm("¿Estás seguro de eliminar esta cuenta de administrador?")) {
-                const adminMatch = cuentasAdmin.find(a => a.correo === correo);
-                if (adminMatch && window.firebaseEnabled && adminMatch.idDoc) {
-                    try {
-                        const { doc, deleteDoc } = window.fsModule;
-                        await deleteDoc(doc(window.db, "cuentasAdmin", adminMatch.idDoc));
-                    } catch (e) { console.warn(e); }
-                }
-
-                cuentasAdmin = cuentasAdmin.filter(a => a.correo !== correo);
-                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-                renderizarTodoAdmin();
-            }
+            alert("¡Cambios guardados con éxito!");
         }
 
         async function eliminarEmpleado(idEmp) {
-            if (confirm("¿Estás seguro de eliminar este empleado del sistema? Ya no aparecerá en los menús desplegables.")) {
+            if (confirm("¿Estás seguro de dar de baja a este colaborador?")) {
                 const empMatch = empleados.find(e => e.id === idEmp);
                 if (empMatch && window.firebaseEnabled && empMatch.idDoc) {
                     try {
@@ -2423,19 +2401,25 @@
 
                 empleados = empleados.filter(e => e.id !== idEmp);
                 localStorage.setItem('control_empleados', JSON.stringify(empleados));
-                
                 poblarSelectsColaboradores();
                 renderizarTodoAdmin();
             }
         }
 
-        function mostrarAlerta(elemento, texto, tipo) {
-            elemento.textContent = texto;
-            elemento.className = `alerta ${tipo}`;
-            elemento.classList.add('oculto');
-            setTimeout(() => {
-                elemento.classList.add('oculto');
-            }, 4000);
+        async function eliminarAdmin(correoAdmin) {
+            if (confirm("¿Estás seguro de eliminar este administrador?")) {
+                const adminMatch = cuentasAdmin.find(a => a.correo === correoAdmin);
+                if (adminMatch && window.firebaseEnabled && adminMatch.idDoc) {
+                    try {
+                        const { doc, deleteDoc } = window.fsModule;
+                        await deleteDoc(doc(window.db, "cuentasAdmin", adminMatch.idDoc));
+                    } catch (e) { console.warn(e); }
+                }
+
+                cuentasAdmin = cuentasAdmin.filter(a => a.correo !== correoAdmin);
+                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
+                renderizarTodoAdmin();
+            }
         }
     </script>
 </body>
