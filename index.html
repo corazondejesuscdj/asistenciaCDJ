@@ -2490,7 +2490,49 @@
         async function cerrarJornadasVencidasAlAbrir(){const hoy=fechaLocalCDJ();let cambio=false;for(const r of registros){if(r.horaEntrada&&!r.horaSalida&&fechaRegistroISOCDJ(r.fechaEntrada)&&fechaRegistroISOCDJ(r.fechaEntrada)<hoy){const fechaCierre=fechaRegistroISOCDJ(r.fechaEntrada);const fechaFin=new Date(`${fechaCierre}T23:59:59-06:00`);r.fechaSalida=fechaCierre;r.horaSalida='23:59:59';r.timestampSalida=fechaFin.getTime();r.segundosLaborados=Math.max(0,Math.floor((r.timestampSalida-(r.timestampEntrada||r.timestamp)) /1000));r.tiempoLaborado=formatoHorasCDJ(r.segundosLaborados);if(window.firebaseEnabled&&r.idDoc){try{const {doc,updateDoc}=window.fsModule;await updateDoc(doc(window.db,'registros',r.idDoc),{fechaSalida:r.fechaSalida,horaSalida:r.horaSalida,timestampSalida:r.timestampSalida,segundosLaborados:r.segundosLaborados,tiempoLaborado:r.tiempoLaborado,cierreAutomatico:true});}catch(e){console.error('Cierre automático pendiente de sincronización',e);}}cambio=true;}}if(cambio){localStorage.setItem('control_registros',JSON.stringify(registros));renderizarTodoAdmin();}}
         cerrarJornadasVencidasAlAbrir();
         const _verificarAdminOriginal=verificarAdmin;
-        verificarAdmin=function(){_verificarAdminOriginal();if(adminSesionActiva){document.getElementById('btn-tab-nomina').classList.remove('oculto');prepararSelectoresNomina();}};
+        // Verificación robusta: refrescar la lista de administradores desde Firestore
+        // antes de validar credenciales, evitando fallos por carga tardía/caché en tablets.
+        verificarAdmin=async function(){
+            const correoInput=document.getElementById('admin-email').value.trim().toLowerCase();
+            const passInput=document.getElementById('admin-pass').value.trim();
+            if(window.firebaseEnabled && window.db && window.fsModule){
+                try{
+                    const {collection,getDocs}=window.fsModule;
+                    const snapAdmin=await getDocs(collection(window.db,'cuentasAdmin'));
+                    cuentasAdmin=snapAdmin.docs.map(d=>({idDoc:d.id,...d.data()}));
+                }catch(err){
+                    console.error('No fue posible actualizar administradores desde Firestore:',err);
+                    mostrarAlerta(document.getElementById('mensaje-login'),'No se pudo verificar la cuenta en la nube. Revisa la conexión e inténtalo nuevamente.','error');
+                    return;
+                }
+            }else{
+                mostrarAlerta(document.getElementById('mensaje-login'),'La nube no está disponible. No se puede validar el acceso administrativo.','error');
+                return;
+            }
+            // Confirmar cuenta y habilitar el tablero de tareas para cualquier jerarquía admin.
+            const adminEncontrado=cuentasAdmin.find(a=>String(a.correo||'').trim().toLowerCase()===correoInput && String(a.pass||'')===passInput);
+            if(!adminEncontrado){
+                mostrarAlerta(document.getElementById('mensaje-login'),'Correo o contraseña incorrectos.','error');
+                return;
+            }
+            _verificarAdminOriginal();
+            if(adminSesionActiva){
+                document.getElementById('btn-tab-nomina').classList.remove('oculto');
+                prepararSelectoresNomina();
+                const btnAsignar=document.querySelector('#admin-panel button[onclick="abrirModalAsignarTarea()"]');
+                if(btnAsignar)btnAsignar.disabled=false;
+            }
+        };
+        const _abrirModalAsignarTareaOriginal=abrirModalAsignarTarea;
+        abrirModalAsignarTarea=function(){
+            if(!adminSesionActiva){alert('Solo los administradores pueden asignar tareas.');return;}
+            _abrirModalAsignarTareaOriginal();
+        };
+        const _guardarTareaSemanalAdminOriginal=guardarTareaSemanalAdmin;
+        guardarTareaSemanalAdmin=async function(){
+            if(!adminSesionActiva){alert('Solo los administradores pueden publicar tareas en el tablero.');return;}
+            await _guardarTareaSemanalAdminOriginal();
+        };
         const _cerrarSesionAdminOriginal=cerrarSesionAdmin;
         cerrarSesionAdmin=function(){_cerrarSesionAdminOriginal();document.getElementById('btn-tab-nomina').classList.add('oculto');};
         const _renderizarTodoAdminOriginal=renderizarTodoAdmin;
