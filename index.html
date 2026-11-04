@@ -1068,11 +1068,11 @@
         const estadoConexion = document.getElementById('estado-conexion');
 
         function actualizarEstadoConexion() {
-            if (navigator.onLine) {
-                estadoConexion.textContent = "Online (Cloud + Local)";
+            if (navigator.onLine && window.firebaseEnabled && window.db) {
+                estadoConexion.textContent = "En línea · Firestore";
                 estadoConexion.classList.add('online');
             } else {
-                estadoConexion.textContent = "Offline (Local)";
+                estadoConexion.textContent = navigator.onLine ? "Nube no disponible" : "Sin conexión · Solo lectura";
                 estadoConexion.classList.remove('online');
             }
         }
@@ -1106,7 +1106,7 @@
         let adminSesionActiva = null;
         let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
         let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
-        let tareasSemanales = JSON.parse(localStorage.getItem('control_tareas_semanales')) || [];
+        let tareasSemanales = []; // Firestore es la única fuente oficial del tablero semanal.
 
         // Sincronización con Firestore cuando esté listo
         window.addEventListener('firebase-ready', async () => {
@@ -1157,9 +1157,18 @@
             // Firestore es la fuente de verdad: incluso una colección vacía debe
             // reemplazar el caché local para no mostrar tareas antiguas de otro dispositivo.
             tareasSemanales = snapTar.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-            localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
             renderizarTableroTareasSemanales();
             cargarOpcionesTareasEnBitacora();
+        }
+
+        // Diagnóstico persistente de tareas: registra publicación, snapshots y errores
+        // para identificar si una tarea se pierde en Firestore o en la interfaz.
+        window.__CDJ_taskDiagnostics = window.__CDJ_taskDiagnostics || [];
+        function registrarDiagnosticoTareasCDJ(evento, detalle = {}) {
+            const registro = { evento, fecha: new Date().toISOString(), proyecto: window.firebaseConfig?.projectId || 'desconocido', ...detalle };
+            window.__CDJ_taskDiagnostics.push(registro);
+            if (window.__CDJ_taskDiagnostics.length > 100) window.__CDJ_taskDiagnostics.shift();
+            console.info('[CDJ tareas diagnóstico]', registro);
         }
 
         // Mantener asistencia y bitácora en tiempo real entre todos los dispositivos conectados.
@@ -1186,11 +1195,12 @@
             // Tablero semanal compartido: escucha altas, cambios y eliminaciones
             // de Firestore en todos los dispositivos conectados.
             onSnapshot(collection(window.db,'tareasSemanales'),snap=>{
+                registrarDiagnosticoTareasCDJ('snapshot recibido', { cantidad: snap.size, ids: snap.docs.map(d=>d.id), desdeCache: snap.metadata?.fromCache ?? null, cambios: snap.docChanges().map(c=>({tipo:c.type,id:c.doc.id})) });
                 tareasSemanales=snap.docs.map(d=>({idDoc:d.id,...d.data()}));
-                localStorage.setItem('control_tareas_semanales',JSON.stringify(tareasSemanales));
                 renderizarTableroTareasSemanales();
                 cargarOpcionesTareasEnBitacora();
             },err=>{
+                registrarDiagnosticoTareasCDJ('error listener Firestore', { code: err?.code || null, message: err?.message || String(err) });
                 console.error('Realtime tareas semanales CDJ:',err);
                 const msg=document.getElementById('mensaje-admin-tarea');
                 if(msg) mostrarAlerta(msg,'No se pudo sincronizar el tablero con Firestore. Revisa conexión y permisos.','error');
@@ -1238,8 +1248,7 @@
                     }
                     if (datosRestaurados.tareasSemanales) {
                         tareasSemanales = datosRestaurados.tareasSemanales;
-                        localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                    }
+                                }
                     alert("¡Respaldo importado y restaurado exitosamente!");
                     renderizarTodoAdmin();
                 } catch (err) {
@@ -1547,18 +1556,20 @@
                         const { collection, addDoc } = window.fsModule;
                         const docRef = await addDoc(collection(window.db, "tareasSemanales"), nuevaTareaObj);
                         nuevaTareaObj.idDoc = docRef.id;
+                        registrarDiagnosticoTareasCDJ('publicación confirmada por Firestore', { idDoc: docRef.id, titulo: nuevaTareaObj.titulo, prioridad: nuevaTareaObj.prioridad });
                         // El listener onSnapshot incorporará la tarea al tablero compartido.
                     } catch (e) {
+                        registrarDiagnosticoTareasCDJ('error al publicar', { code: e?.code || null, message: e?.message || String(e), titulo });
                         console.error('Error al publicar tarea semanal en Firestore:', e);
-                        mostrarAlerta(msg, 'No se pudo guardar la tarea en la nube. No se publicó. Revisa conexión y permisos de Firestore.', 'error');
+                        mostrarAlerta(msg, `No se pudo guardar en Firestore (${e?.code || 'error'}). ${e?.message || ''}`, 'error');
                         return;
                     }
                 } else {
-                    tareasSemanales.push(nuevaTareaObj);
-                    localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                    renderizarTableroTareasSemanales();
+                    registrarDiagnosticoTareasCDJ('publicación bloqueada: Firestore no disponible', { titulo });
+                    mostrarAlerta(msg, 'No se publicó la tarea: Firestore no está conectado. Conéctate a la nube e inténtalo de nuevo.', 'error');
+                    return;
                 }
-                mostrarAlerta(msg, window.firebaseEnabled ? '¡Tarea guardada en la nube! Se sincronizará con los demás dispositivos.' : 'Tarea guardada solo en este dispositivo (Firebase no está conectado).', window.firebaseEnabled ? 'exito' : 'error');
+                mostrarAlerta(msg, '¡Tarea guardada en Firestore! Esperando sincronización del tablero.', 'exito');
 
                 document.getElementById('admin-tarea-titulo').value = '';
                 document.getElementById('admin-tarea-desc').value = '';
@@ -1597,6 +1608,7 @@
                     try {
                         const { doc, deleteDoc } = window.fsModule;
                         await deleteDoc(doc(window.db, "tareasSemanales", tareaMatch.idDoc));
+                        registrarDiagnosticoTareasCDJ('eliminación solicitada por administrador', { idDoc: tareaMatch.idDoc, idTarea });
                         // onSnapshot actualizará el tablero y el caché local.
                     } catch (e) {
                         console.error('Error al eliminar tarea semanal en Firestore:', e);
@@ -1604,9 +1616,7 @@
                     }
                     return;
                 }
-                tareasSemanales = tareasSemanales.filter(t => t.id != idTarea);
-                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                renderizarTableroTareasSemanales();
+                alert('Firestore no está disponible. No se eliminó la tarea.');
             }
         }
 
@@ -1742,19 +1752,9 @@
                 bitacoraTareas.unshift(nuevaBitacoraObj);
                 localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
 
+                // Registrar una tarea como completada en la bitácora NO debe borrar
+                // la asignación del tablero semanal. Solo un administrador la elimina.
                 let mensajeExtra = "";
-                if (tareaVinculadaId && estado === "Completado") {
-                    const tareaMatch = tareasSemanales.find(t => t.id == tareaVinculadaId);
-                    if (tareaMatch && window.firebaseEnabled && tareaMatch.idDoc) {
-                        try {
-                            const { doc, deleteDoc } = window.fsModule;
-                            await deleteDoc(doc(window.db, "tareasSemanales", tareaMatch.idDoc));
-                        } catch (e) { console.warn(e); }
-                    }
-                    tareasSemanales = tareasSemanales.filter(t => t.id != tareaVinculadaId);
-                    localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                    mensajeExtra = " ¡Se liberó la tarea del tablero semanal!";
-                }
 
                 mostrarAlerta(msg, "¡Tarea registrada con éxito!" + mensajeExtra, "exito");
                 document.getElementById('bitacora-titulo').value = '';
@@ -2381,7 +2381,7 @@
                     for(let i=0;i<files.length;i++){
                         const f=files[i];
                         const blob=await comprimirEvidenciaCDJ(f);
-                        const path=`bitacoraEvidencias/${EMPRESA_UNICA.id}/${Date.now()}_${id}_${i}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`;
+                        const path=`bitacoraEvidencias/${EMPRESA_UNICA.id}/${Date.now()}_${id}_${i}_${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}.jpg`;
                         const ref=storageRef(window.cdjStorage,path);
                         await uploadBytes(ref,blob,{contentType:'image/jpeg'});
                         fotos.push(await getDownloadURL(ref));
@@ -2401,7 +2401,8 @@
                 document.getElementById('bitacora-evidencias-info').textContent='Selecciona al menos una imagen de evidencia. Puedes agregar hasta cinco.';
                 cargarOpcionesTareasEnBitacora();renderizarBitacoraRecientes();renderizarTodoAdmin();
                 mostrarAlerta(msg,'Actividad registrada a nombre de '+persona.nombre+'.','exito');
-                if(tareaVinculadaId&&estado==='Completado'){const t=tareasSemanales.find(x=>x.id==tareaVinculadaId);if(t)await eliminarTareaSemanal(t.id);}
+                // La tarea semanal permanece publicada aunque se registre como completada.
+                // Su eliminación queda reservada a la acción explícita del administrador.
             } catch(e) {
                 console.error('Error al guardar bitácora CDJ:',e);
                 mostrarAlerta(msg,'No se pudo registrar la tarea. Revisa la conexión y permisos de Firebase Storage/Firestore. Detalle: '+(e?.message||e),'error');
