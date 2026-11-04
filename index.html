@@ -44,6 +44,7 @@
       // Lanzar evento personalizado cuando Firebase esté listo
       window.dispatchEvent(new Event('firebase-ready'));
     </script>
+    <script>window.addEventListener('error', function(e){ if(String(e.message||'').includes('Firebase')) { window.firebaseEnabled=false; window.dispatchEvent(new Event('firebase-error')); }});</script>
 
     <style>
         :root {
@@ -738,7 +739,7 @@
             <!-- SECCIÓN DE RESPALDO ANTI-BORRADO LOCAL -->
             <div style="background: var(--bg-input); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
                 <div>
-                    <strong style="font-size: 0.9rem; display: block;">💾 Respaldo de Base de Datos Local / Nube</strong>
+                    <strong style="font-size: 0.9rem; display: block;">☁️ Respaldo de Base de Datos (Firestore)</strong>
                     <small style="color: var(--text-muted);">Exporta o importa tus datos en formato JSON para prevenir pérdidas por caché del navegador.</small>
                 </div>
                 <div style="display: flex; gap: 10px;">
@@ -1069,13 +1070,15 @@
 
         function actualizarEstadoConexion() {
             if (navigator.onLine && window.firebaseEnabled && window.db) {
-                estadoConexion.textContent = "En línea · Firestore";
+                estadoConexion.textContent = "En línea · Nube (Firestore)";
                 estadoConexion.classList.add('online');
             } else {
-                estadoConexion.textContent = navigator.onLine ? "Nube no disponible" : "Sin conexión · Solo lectura";
+                estadoConexion.textContent = navigator.onLine ? "Nube no disponible" : "Sin conexión · Nube no accesible";
                 estadoConexion.classList.remove('online');
             }
         }
+        window.addEventListener('firebase-ready', actualizarEstadoConexion);
+        window.addEventListener('firebase-error', actualizarEstadoConexion);
         window.addEventListener('online', actualizarEstadoConexion);
         window.addEventListener('offline', actualizarEstadoConexion);
         actualizarEstadoConexion();
@@ -1101,11 +1104,11 @@
 
         const EMPRESA_UNICA = { id: "CDJ", nombre: "Corazón De Jesús" };
 
-        let empleados = JSON.parse(localStorage.getItem('control_empleados')) || [];
-        let cuentasAdmin = JSON.parse(localStorage.getItem('control_cuentas_admin')) || [];
+        let empleados = []; // Datos compartidos: Firestore
+        let cuentasAdmin = []; // Datos compartidos: Firestore
         let adminSesionActiva = null;
-        let registros = JSON.parse(localStorage.getItem('control_registros')) || [];
-        let bitacoraTareas = JSON.parse(localStorage.getItem('control_bitacora')) || [];
+        let registros = []; // Datos compartidos: Firestore
+        let bitacoraTareas = []; // Datos compartidos: Firestore
         let tareasSemanales = []; // Firestore es la única fuente oficial del tablero semanal.
 
         // Sincronización con Firestore cuando esté listo
@@ -1115,7 +1118,7 @@
                 iniciarSincronizacionRealtimeCDJ();
                 actualizarEstadoConexion();
             } catch (e) {
-                console.warn("Trabajando en modo offline o error al sincronizar con Firebase:", e);
+                console.warn("Error al sincronizar con Firebase (los datos compartidos requieren nube):", e);
             }
         });
 
@@ -1126,31 +1129,19 @@
 
             // Empleados
             const snapEmp = await getDocs(collection(db, "empleados"));
-            if (!snapEmp.empty) {
-                empleados = snapEmp.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_empleados', JSON.stringify(empleados));
-            }
+            empleados = snapEmp.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
 
             // Admins
             const snapAdmin = await getDocs(collection(db, "cuentasAdmin"));
-            if (!snapAdmin.empty) {
-                cuentasAdmin = snapAdmin.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_cuentas_admin', JSON.stringify(cuentasAdmin));
-            }
+            cuentasAdmin = snapAdmin.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
 
             // Registros de asistencia
             const snapReg = await getDocs(collection(db, "registros"));
-            if (!snapReg.empty) {
-                registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_registros', JSON.stringify(registros));
-            }
+            registros = snapReg.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
 
             // Bitácora
             const snapBit = await getDocs(collection(db, "bitacoraTareas"));
-            if (!snapBit.empty) {
-                bitacoraTareas = snapBit.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_bitacora', JSON.stringify(bitacoraTareas));
-            }
+            bitacoraTareas = snapBit.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
 
             // Tareas semanales
             const snapTar = await getDocs(collection(db, "tareasSemanales"));
@@ -1178,6 +1169,8 @@
             const {collection,onSnapshot}=window.fsModule;
             if(!onSnapshot) return;
             listenersCDJRealtimeIniciados=true;
+            onSnapshot(collection(window.db,'empleados'),snap=>{empleados=snap.docs.map(d=>({idDoc:d.id,...d.data()}));if(typeof renderizarTodoAdmin==='function')renderizarTodoAdmin();},err=>{console.error('Realtime empleados CDJ:',err);});
+            onSnapshot(collection(window.db,'cuentasAdmin'),snap=>{cuentasAdmin=snap.docs.map(d=>({idDoc:d.id,...d.data()}));if(typeof renderizarTodoAdmin==='function')renderizarTodoAdmin();},err=>{console.error('Realtime administradores CDJ:',err);});
             onSnapshot(collection(window.db,'registros'),snap=>{
                 registros=snap.docs.map(d=>({idDoc:d.id,...d.data()}));
                 localStorage.setItem('control_registros',JSON.stringify(registros));
@@ -1582,11 +1575,26 @@
             };
 
             if (inputFile.files && inputFile.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    procesarPublicacion(e.target.result);
-                };
-                reader.readAsDataURL(inputFile.files[0]);
+                const archivo = inputFile.files[0];
+                if (archivo.size > 10 * 1024 * 1024) {
+                    mostrarAlerta(msg, 'La imagen supera el límite de 10 MB.', 'error');
+                    return;
+                }
+                if (!window.firebaseEnabled || !window.cdjStorage || !window.storageModule) {
+                    mostrarAlerta(msg, 'No se publicó: Firebase Storage no está disponible. Verifica la conexión a la nube.', 'error');
+                    return;
+                }
+                try {
+                    const { storageRef, uploadBytes, getDownloadURL } = window.storageModule;
+                    const ruta = `tareasSemanales/${EMPRESA_UNICA.id}/${Date.now()}_${archivo.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+                    const referencia = storageRef(window.cdjStorage, ruta);
+                    await uploadBytes(referencia, archivo, { contentType: archivo.type || 'application/octet-stream' });
+                    const urlImagen = await getDownloadURL(referencia);
+                    await procesarPublicacion(urlImagen);
+                } catch (e) {
+                    console.error('Error subiendo imagen de tarea a Firebase Storage:', e);
+                    mostrarAlerta(msg, `No se pudo subir la imagen a la nube (${e?.code || 'error'}): ${e?.message || ''}`, 'error');
+                }
             } else {
                 procesarPublicacion(null);
             }
