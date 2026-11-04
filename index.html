@@ -2381,7 +2381,7 @@
                     for(let i=0;i<files.length;i++){
                         const f=files[i];
                         const blob=await comprimirEvidenciaCDJ(f);
-                        const path=`bitacoraEvidencias/${EMPRESA_UNICA.id}/${Date.now()}_${id}_${i}_${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}.jpg`;
+                        const path=`bitacoraEvidencias/${EMPRESA_UNICA.id}/${Date.now()}_${id}_${i}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`;
                         const ref=storageRef(window.cdjStorage,path);
                         await uploadBytes(ref,blob,{contentType:'image/jpeg'});
                         fotos.push(await getDownloadURL(ref));
