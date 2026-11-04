@@ -1154,10 +1154,12 @@
 
             // Tareas semanales
             const snapTar = await getDocs(collection(db, "tareasSemanales"));
-            if (!snapTar.empty) {
-                tareasSemanales = snapTar.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-            }
+            // Firestore es la fuente de verdad: incluso una colección vacía debe
+            // reemplazar el caché local para no mostrar tareas antiguas de otro dispositivo.
+            tareasSemanales = snapTar.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+            localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+            renderizarTableroTareasSemanales();
+            cargarOpcionesTareasEnBitacora();
         }
 
         // Mantener asistencia y bitácora en tiempo real entre todos los dispositivos conectados.
@@ -1181,6 +1183,18 @@
                 renderizarBitacoraRecientes();
                 if(typeof renderizarTodoAdmin==='function') renderizarTodoAdmin();
             },err=>console.error('Realtime bitácora CDJ:',err));
+            // Tablero semanal compartido: escucha altas, cambios y eliminaciones
+            // de Firestore en todos los dispositivos conectados.
+            onSnapshot(collection(window.db,'tareasSemanales'),snap=>{
+                tareasSemanales=snap.docs.map(d=>({idDoc:d.id,...d.data()}));
+                localStorage.setItem('control_tareas_semanales',JSON.stringify(tareasSemanales));
+                renderizarTableroTareasSemanales();
+                cargarOpcionesTareasEnBitacora();
+            },err=>{
+                console.error('Realtime tareas semanales CDJ:',err);
+                const msg=document.getElementById('mensaje-admin-tarea');
+                if(msg) mostrarAlerta(msg,'No se pudo sincronizar el tablero con Firestore. Revisa conexión y permisos.','error');
+            });
         }
 
         /* RESPALDO JSON */
@@ -1533,12 +1547,18 @@
                         const { collection, addDoc } = window.fsModule;
                         const docRef = await addDoc(collection(window.db, "tareasSemanales"), nuevaTareaObj);
                         nuevaTareaObj.idDoc = docRef.id;
-                    } catch (e) { console.warn(e); }
+                        // El listener onSnapshot incorporará la tarea al tablero compartido.
+                    } catch (e) {
+                        console.error('Error al publicar tarea semanal en Firestore:', e);
+                        mostrarAlerta(msg, 'No se pudo guardar la tarea en la nube. No se publicó. Revisa conexión y permisos de Firestore.', 'error');
+                        return;
+                    }
+                } else {
+                    tareasSemanales.push(nuevaTareaObj);
+                    localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
+                    renderizarTableroTareasSemanales();
                 }
-
-                tareasSemanales.push(nuevaTareaObj);
-                localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
-                mostrarAlerta(msg, "¡Tarea asignada con éxito!", "exito");
+                mostrarAlerta(msg, window.firebaseEnabled ? '¡Tarea guardada en la nube! Se sincronizará con los demás dispositivos.' : 'Tarea guardada solo en este dispositivo (Firebase no está conectado).', window.firebaseEnabled ? 'exito' : 'error');
 
                 document.getElementById('admin-tarea-titulo').value = '';
                 document.getElementById('admin-tarea-desc').value = '';
@@ -1569,13 +1589,21 @@
 
             if (confirm("¿Estás seguro de eliminar esta tarea del tablero semanal?")) {
                 const tareaMatch = tareasSemanales.find(t => t.id == idTarea);
-                if (tareaMatch && window.firebaseEnabled && tareaMatch.idDoc) {
+                if (tareaMatch && window.firebaseEnabled) {
+                    if (!tareaMatch.idDoc) {
+                        alert('Esta tarea no tiene identificador de Firestore. No se eliminó para evitar inconsistencias.');
+                        return;
+                    }
                     try {
                         const { doc, deleteDoc } = window.fsModule;
                         await deleteDoc(doc(window.db, "tareasSemanales", tareaMatch.idDoc));
-                    } catch (e) { console.warn(e); }
+                        // onSnapshot actualizará el tablero y el caché local.
+                    } catch (e) {
+                        console.error('Error al eliminar tarea semanal en Firestore:', e);
+                        alert('No se pudo eliminar la tarea en la nube. No se eliminó localmente. Revisa conexión y permisos.');
+                    }
+                    return;
                 }
-
                 tareasSemanales = tareasSemanales.filter(t => t.id != idTarea);
                 localStorage.setItem('control_tareas_semanales', JSON.stringify(tareasSemanales));
                 renderizarTableroTareasSemanales();
